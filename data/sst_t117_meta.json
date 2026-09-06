@@ -1,0 +1,17 @@
+{
+ "width": 1440,
+ "height": 721,
+ "uMin": 0.0,
+ "uMax": 32.0,
+ "vMin": 0.0,
+ "vMax": 0.0,
+ "west": -180.0,
+ "east": 179.75,
+ "south": -90.0,
+ "north": 90.0,
+ "maxSstC": 44.950000000000045,
+ "run": "20260906 12Z",
+ "fh": 117,
+ "sst": true,
+ "source": "NOAA GFS surface temperature (public domain)"
+}

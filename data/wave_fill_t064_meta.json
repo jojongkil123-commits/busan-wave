@@ -1,0 +1,17 @@
+{
+ "width": 1440,
+ "height": 721,
+ "uMin": -6.066612816512928,
+ "uMax": 9.730422440546375,
+ "vMin": -8.707428935598395,
+ "vMax": 8.083178094185484,
+ "west": -180.0,
+ "east": 179.75,
+ "south": -90.0,
+ "north": 90.0,
+ "maxWaveM": 10.370000000000001,
+ "run": "20260906 12Z",
+ "filled": true,
+ "fh": 64,
+ "source": "NOAA GFS-Wave (public domain)"
+}
