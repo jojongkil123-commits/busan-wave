@@ -1,0 +1,34 @@
+{
+  "station": "부산(DT_0005)",
+  "date": "2026-09-19",
+  "generated": "2026-09-19T07:23:59.059561+09:00",
+  "source": "Open-Meteo(대체)",
+  "datum": "평균해면(MSL)",
+  "events": [
+    {
+      "time": "2026-09-19 06:00",
+      "level_cm": 6,
+      "kind": "low"
+    },
+    {
+      "time": "2026-09-19 13:00",
+      "level_cm": 44,
+      "kind": "high"
+    },
+    {
+      "time": "2026-09-19 18:00",
+      "level_cm": 21,
+      "kind": "low"
+    },
+    {
+      "time": "2026-09-19 19:00",
+      "level_cm": 21,
+      "kind": "high"
+    },
+    {
+      "time": "2026-09-19 20:00",
+      "level_cm": 21,
+      "kind": "low"
+    }
+  ]
+}

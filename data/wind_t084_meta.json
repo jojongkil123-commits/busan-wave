@@ -1,0 +1,17 @@
+{
+ "width": 1440,
+ "height": 721,
+ "uMin": -30.70900390625,
+ "uMax": 31.98099609375,
+ "vMin": -33.03341552734375,
+ "vMax": 31.43658447265625,
+ "west": -180.0,
+ "east": 179.75,
+ "south": -90.0,
+ "north": 90.0,
+ "maxWindMs": 37.47700286329019,
+ "run": "20260919 06Z",
+ "landOk": true,
+ "fh": 84,
+ "source": "NOAA GFS 10m wind (public domain)"
+}
