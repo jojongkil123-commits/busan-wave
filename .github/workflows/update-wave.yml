@@ -1,0 +1,51 @@
+# Phase 2 자동화 — 6시간마다 NOAA GFS-Wave를 받아 wave.png 텍스처를 갱신해 커밋.
+# (Cloudflare Worker는 eccodes(GRIB파서) 실행 불가 → GitHub Actions로 파싱·커밋, Pages가 자동 재배포)
+name: update-wave-texture
+on:
+  schedule:
+    - cron: "20 1,7,13,19 * * *"   # UTC 01:20/07:20/13:20/19:20 (GFS 00/06/12/18Z 발표 후)
+  workflow_dispatch: {}            # 수동 실행 버튼도
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - name: 의존성 설치 (GRIB 파서)
+        run: pip install --quiet eccodes cfgrib numpy pillow
+      - name: NOAA GFS-Wave → wave.png 생성
+        run: python3 scripts/build_wave_texture.py
+      - name: 갱신분 커밋 (데이터 커밋은 amend로 1개 유지 — 히스토리 비대 방지)
+        run: |
+          git config user.name "wave-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then exit 0; fi
+          MSG="auto: NOAA 파고·바람 스텝 텍스처 갱신 $(date -u +%FT%TZ)"
+
+          # ⚠️ push 는 반드시 재시도한다. 2026-08-13 14:37 실행이 깃허브 쪽
+          #    'remote: Internal Server Error' 로 죽었다 — 우리 코드 문제가 아니라
+          #    깃허브 장애다. 3분 넘게 GRIB 을 받아 텍스처까지 다 만들어 놓고
+          #    마지막 push 한 번에 전부 버리는 건 아깝다.
+          push_retry() {
+            for i in 1 2 3 4 5; do
+              if "$@"; then return 0; fi
+              echo "push 실패($i/5) — $((i*10))초 후 재시도"
+              sleep $((i*10))
+              git fetch origin main || true
+            done
+            return 1
+          }
+
+          if git log -1 --pretty=%s | grep -q '^auto:'; then
+            git commit --amend -m "$MSG"
+            push_retry git push --force-with-lease || push_retry git push --force
+          else
+            git commit -m "$MSG"
+            push_retry git push
+          fi
