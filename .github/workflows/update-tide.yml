@@ -1,0 +1,32 @@
+# 부산 물때 자동 갱신 (Phase 4)
+# ⚠️ 이 파일은 automation/ 에 보관돼 있어 "꺼진" 상태입니다.
+#    켜려면: ① GitHub 저장소 Settings → Secrets and variables → Actions 에
+#            KHOA_KEY = <data.go.kr 인증키> 추가
+#         ② 이 파일을 .github/workflows/update-tide.yml 로 이동(웹에서 옮기면 됨)
+#    그러면 매일 새벽 부산 물때가 자동으로 data/tide_busan.json 에 갱신됩니다.
+name: update-tide
+on:
+  schedule:
+    - cron: "5 20 * * *"   # 매일 05:05 KST (UTC 20:05)
+  workflow_dispatch:        # 수동 실행 버튼
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: 물때 JSON 생성
+        env:
+          KHOA_KEY: ${{ secrets.KHOA_KEY }}
+        run: python3 scripts/build_tide.py
+      - name: 커밋 & 푸시
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          git add data/tide_busan.json || true
+          git diff --cached --quiet || git commit -m "물때 자동 갱신 ($(date -u +%Y-%m-%d))"
+          git push || true

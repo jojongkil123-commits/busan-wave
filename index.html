@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>부산 파고</title>
+<meta name="theme-color" content="#06121f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="부산 파고">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#06121f; }
+  #map { position:absolute; inset:0; }
+  .topbar {
+    position:absolute; top:0; left:0; right:0; z-index:5;
+    padding:max(env(safe-area-inset-top),10px) 14px 8px;
+    background:linear-gradient(#06121fcc,#06121f00);
+    color:#fff; font:600 15px/1.2 -apple-system,system-ui,sans-serif;
+    pointer-events:none; display:flex; align-items:center; gap:6px;
+  }
+  .topbar b { font-weight:800; }
+  .topbar .dot { width:8px; height:8px; border-radius:50%; background:#34d0ff; box-shadow:0 0 8px #34d0ff; }
+  #me {
+    position:absolute; right:14px; bottom:max(env(safe-area-inset-bottom),84px); z-index:5;
+    width:46px; height:46px; border:none; border-radius:50%;
+    background:#fff; color:#0a73e8; font-size:19px; box-shadow:0 2px 8px #0006;
+  }
+  /* 파고 토글 */
+  #wave {
+    position:absolute; left:50%; transform:translateX(-50%);
+    bottom:max(env(safe-area-inset-bottom),20px); z-index:5;
+    border:none; border-radius:22px; padding:11px 22px;
+    background:#0a73e8; color:#fff; font:700 15px -apple-system,system-ui,sans-serif;
+    box-shadow:0 2px 10px #0007;
+  }
+  #wave.on { background:#06b6d4; }
+  /* 범례 */
+  #legend {
+    position:absolute; top:46px; left:50%; transform:translateX(-50%); z-index:5;
+    display:none; align-items:center; gap:6px; padding:5px 10px; border-radius:14px;
+    background:#0b1b2dcc; color:#fff; font:600 11px -apple-system,system-ui,sans-serif;
+  }
+  #legend .bar { width:90px; height:8px; border-radius:4px;
+    background:linear-gradient(90deg,#e8fbff,#34d0ff,#36e07a,#ffe23c,#ff8a00,#e63333); }
+  /* 파고 위험경고 칩 */
+  #wstatus { position:absolute; top:78px; left:50%; transform:translateX(-50%); z-index:6;
+    display:none; align-items:center; gap:6px; padding:6px 12px; border-radius:16px;
+    color:#fff; font:700 12px -apple-system,system-ui,sans-serif;
+    background:#1a9c5bd9; box-shadow:0 2px 8px #0006; white-space:nowrap; }
+  #wstatus.warn { background:#e08a00e6; }
+  #wstatus.danger { background:#e02929ee; animation:wpulse 1.1s ease-in-out infinite; }
+  @keyframes wpulse { 0%,100%{box-shadow:0 2px 8px #0006;} 50%{box-shadow:0 0 16px #ff4d4d;} }
+  /* 공유 버튼 */
+  #share { position:absolute; right:14px; bottom:max(env(safe-area-inset-bottom),140px); z-index:5;
+    width:46px; height:46px; border:none; border-radius:50%;
+    background:#fff; color:#0a73e8; font-size:20px; box-shadow:0 2px 8px #0006; }
+  /* 물때 버튼·패널 */
+  #tideBtn { position:absolute; left:14px; bottom:max(env(safe-area-inset-bottom),84px); z-index:5;
+    display:none; border:none; border-radius:22px; padding:11px 16px;
+    background:#0b1b2dd9; color:#fff; font:700 14px -apple-system,system-ui,sans-serif; box-shadow:0 2px 8px #0006; }
+  #tidePanel { position:absolute; left:12px; right:12px; bottom:max(env(safe-area-inset-bottom),140px); z-index:6;
+    display:none; padding:14px 14px 12px; border-radius:16px;
+    background:#0b1b2def; color:#fff; box-shadow:0 4px 16px #0008;
+    font:600 13px -apple-system,system-ui,sans-serif; }
+  #tidePanel h4 { margin:0 0 10px; font-size:14px; font-weight:800; }
+  #tidePanel .row { display:flex; gap:8px; flex-wrap:wrap; }
+  #tidePanel .ev { padding:7px 10px; border-radius:10px; background:#13314e; }
+  #tidePanel .ev.high { background:#0a73e8; }
+  #tidePanel .ev .k { opacity:.85; font-weight:800; margin-right:5px; }
+  #tidePanel .src { margin-top:10px; font-size:10px; opacity:.55; }
+  #tidePanel .x { position:absolute; top:10px; right:14px; cursor:pointer; opacity:.7; font-size:14px; }
+  .maplibregl-ctrl-attrib { font-size:9px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="topbar"><span class="dot"></span><b>부산 파고</b><span style="opacity:.7;font-weight:500">· 연안 해루질 지도</span></div>
+<div id="legend"><span>파고</span><span class="bar"></span><span>높음</span></div>
+<button id="me" title="내 위치">◎</button>
+<button id="wave">🌊 파고 보기</button>
+<button id="share" title="공유 카드">📷</button>
+<button id="tideBtn">🌙 물때</button>
+<div id="wstatus"></div>
+<div id="tidePanel">
+  <span class="x" id="tideX">✕</span>
+  <h4>🌙 오늘 부산 물때</h4>
+  <div class="row" id="tideRows"></div>
+  <div class="src">출처: 국립해양조사원 · 약최저저조면(DL) 기준</div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+// =========================================================================
+// 부산 파고 PWA — Phase 1(지도) + Phase 3(파고 애니메이션, 클라이언트 검증판)
+// 파고 입자는 MapLibre CustomLayer(지도 GL 안에서 렌더 → 줌/팬 완전 동기, 끊김 없음).
+// ⚠️ 데이터: Open-Meteo(비상업) — 동작 검증용 임시. 상업배포 전 NOAA/기상청으로 교체(Phase 2).
+// =========================================================================
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  center: [129.10, 35.13], zoom: 10.5,
+  attributionControl: { compact: true }, dragRotate: false
+});
+map.touchZoomRotate.disableRotation();
+map.addControl(new maplibregl.AttributionControl({ compact: true,
+  customAttribution: '기상청 · 국립해양조사원 · NOAA · Open-Meteo(임시)' }), 'bottom-right');
+const geo = new maplibregl.GeolocateControl({ positionOptions:{enableHighAccuracy:true},
+  trackUserLocation:true, showUserLocation:true });
+map.addControl(geo);
+document.getElementById('me').onclick = () => geo.trigger();
+
+// ---------- 좌표 변환 (Web Mercator 0~1, 객체 생성 없는 순수 계산) ----------
+const mxFromLng = (lng) => (180+lng)/360;
+const myFromLat = (lat) => (180-(180/Math.PI)*Math.log(Math.tan(Math.PI/4+lat*Math.PI/360)))/360;
+const lngFromMx = (x) => x*360-180;
+const latFromMy = (y) => (Math.atan(Math.exp(Math.PI*(1-2*y)))-Math.PI/4)*360/Math.PI;
+
+// ---------- 파고 격자 데이터 ----------
+let grid = null, waveOn = false, fetching = false, debounceT = null, usingNoaa = false;
+
+async function fetchWaveGrid() {
+  if (fetching) return;
+  fetching = true;
+  try {
+    const b = map.getBounds();
+    const pad = 0.15;
+    const minLat = b.getSouth()-pad, maxLat = b.getNorth()+pad;
+    const minLng = b.getWest()-pad,  maxLng = b.getEast()+pad;
+    const rows = 12, cols = 12;
+    const lats = [], lngs = [];
+    for (let r=0; r<rows; r++) for (let c=0; c<cols; c++) {
+      lats.push((maxLat - (maxLat-minLat)*r/(rows-1)).toFixed(4));   // 북→남
+      lngs.push((minLng + (maxLng-minLng)*c/(cols-1)).toFixed(4));   // 서→동
+    }
+    const url = 'https://marine-api.open-meteo.com/v1/marine?latitude='+lats.join(',')+
+      '&longitude='+lngs.join(',')+'&current=wave_height,wave_direction&timezone=Asia%2FSeoul';
+    const res = await fetch(url);
+    const arr = await res.json();
+    const u = [], v = [], m = [];
+    const DOM = 2.5;   // 파고 정규화 상한(m)
+    for (let i=0; i<rows*cols; i++) {
+      const cur = Array.isArray(arr) ? arr[i]?.current : null;
+      const h = cur?.wave_height, d = cur?.wave_direction;
+      if (h==null || d==null) { u.push(null); v.push(null); m.push(null); continue; }
+      const th = d*Math.PI/180;
+      u.push(-Math.sin(th)); v.push(Math.cos(th)); m.push(Math.min(1, h/DOM));
+    }
+    grid = { minLat, maxLat, minLng, maxLng, rows, cols, u, v, m, dom: DOM };
+    map.triggerRepaint();
+    updateWaveStatus();
+  } catch(e) { console.warn('파고 데이터 실패', e); }
+  finally { fetching = false; }
+}
+
+// NOAA GFS-Wave 텍스처(data/wave.png + meta) 로드 → 격자로 디코딩 (상업가능·퍼블릭도메인).
+// 한국·일본·동해 전체를 한 장으로 커버. (Phase 2 산출물. 없으면 Open-Meteo로 폴백.)
+async function loadNoaaTexture() {
+  const meta = await (await fetch('data/wave_meta.json', {cache:'no-store'})).json();
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload=res; img.onerror=rej; img.src='data/wave.png?'+Date.now(); });
+  const cv = document.createElement('canvas'); cv.width=meta.width; cv.height=meta.height;
+  const cx = cv.getContext('2d'); cx.drawImage(img,0,0);
+  const px = cx.getImageData(0,0,meta.width,meta.height).data;
+  const DOM = meta.maxWaveM || 2.5;
+  const u=[], v=[], m=[];
+  for (let i=0;i<meta.width*meta.height;i++){
+    const r=px[i*4], g=px[i*4+1], a=px[i*4+3];
+    if (a===0){ u.push(null); v.push(null); m.push(null); continue; }   // 육지
+    const uu=meta.uMin + r/255*(meta.uMax-meta.uMin);
+    const vv=meta.vMin + g/255*(meta.vMax-meta.vMin);
+    const mag=Math.hypot(uu,vv) || 1;
+    u.push(uu/mag); v.push(vv/mag); m.push(Math.min(1, Math.hypot(uu,vv)/DOM));
+  }
+  grid = { minLat:meta.south, maxLat:meta.north, minLng:meta.west, maxLng:meta.east,
+           rows:meta.height, cols:meta.width, u, v, m, dom: DOM };
+  map.triggerRepaint();
+  updateWaveStatus();
+  console.log('NOAA 텍스처 로드:', meta.run, meta.source);
+}
+
+function sampleField(lng, lat) {
+  const g = grid; if (!g) return null;
+  const fc = (lng-g.minLng)/(g.maxLng-g.minLng)*(g.cols-1);
+  const fr = (g.maxLat-lat)/(g.maxLat-g.minLat)*(g.rows-1);
+  if (fc<0||fr<0||fc>g.cols-1||fr>g.rows-1) return null;
+  const c0=Math.floor(fc), r0=Math.floor(fr), c1=Math.min(c0+1,g.cols-1), r1=Math.min(r0+1,g.rows-1);
+  const i00=r0*g.cols+c0, i10=r0*g.cols+c1, i01=r1*g.cols+c0, i11=r1*g.cols+c1;
+  if (g.m[i00]==null||g.m[i10]==null||g.m[i01]==null||g.m[i11]==null) return null;
+  const tx=fc-c0, ty=fr-r0;
+  const bil = (a)=> (a[i00]*(1-tx)+a[i10]*tx)*(1-ty)+(a[i01]*(1-tx)+a[i11]*tx)*ty;
+  return { u:bil(g.u), v:bil(g.v), m:bil(g.m) };
+}
+function waveColor(m){
+  const st=[[0.95,0.99,1],[0.2,0.82,1],[0.21,0.88,0.48],[1,0.89,0.24],[1,0.54,0],[0.9,0.2,0.2]];
+  const t=Math.max(0,Math.min(1,m))*(st.length-1), i=Math.floor(t), f=t-i;
+  const a=st[i], b=st[Math.min(i+1,st.length-1)];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+}
+
+// ---------- 입자 (MapLibre CustomLayer) ----------
+const TRAIL=6, COUNT=1200;
+let particles=[], vertData=new Float32Array(COUNT*(TRAIL-1)*2*6);
+
+function randSea(){
+  const g=grid, b=map.getBounds();
+  // 데이터 영역(전역)이 아니라 '지금 보이는 화면 범위' 안에 입자를 생성해야 화면이 채워진다.
+  const w=Math.max(b.getWest(),g.minLng),  e=Math.min(b.getEast(),g.maxLng);
+  const s=Math.max(b.getSouth(),g.minLat), n=Math.min(b.getNorth(),g.maxLat);
+  if(e<=w||n<=s) return null;   // 화면이 데이터 영역 밖
+  for(let k=0;k<20;k++){
+    const lng=w+Math.random()*(e-w), lat=s+Math.random()*(n-s);
+    if(sampleField(lng,lat)) return [mxFromLng(lng), myFromLat(lat)];
+  }
+  return null;
+}
+function spawn(p){ const s=randSea(); if(!s){p.dead=true;return;}
+  p.x=s[0];p.y=s[1];p.age=0;p.life=50+Math.random()*150;p.dead=false;
+  p.hx=[s[0],s[0],s[0],s[0],s[0],s[0]]; p.hy=[s[1],s[1],s[1],s[1],s[1],s[1]]; }
+function ensureParticles(){ if(particles.length===COUNT)return; particles=[];
+  for(let i=0;i<COUNT;i++){const p={};spawn(p);particles.push(p);} }
+function updateParticles(){
+  if(!grid)return; if(particles.length===0)ensureParticles();
+  const worldPx=512*Math.pow(2,map.getZoom());
+  for(const p of particles){
+    if(p.dead){spawn(p);continue;}
+    const lng=lngFromMx(p.x), lat=latFromMy(p.y), f=sampleField(lng,lat);
+    if(!f || p.age>p.life){spawn(p);continue;}
+    const d=(0.6+f.m*3.6)/worldPx;
+    p.x+=f.u*d; p.y+=f.v*d; p.m=f.m;
+    p.hx.push(p.x);p.hx.shift();p.hy.push(p.y);p.hy.shift(); p.age++;
+  }
+}
+function buildVerts(){
+  let o=0;
+  for(const p of particles){ if(p.dead)continue;
+    const col=waveColor(p.m||0), c0=col[0],c1=col[1],c2=col[2];
+    for(let k=0;k<TRAIL-1;k++){
+      const a0=0.12+0.7*(k/(TRAIL-1)), a1=0.12+0.7*((k+1)/(TRAIL-1));
+      vertData[o++]=p.hx[k];   vertData[o++]=p.hy[k];   vertData[o++]=a0; vertData[o++]=c0; vertData[o++]=c1; vertData[o++]=c2;
+      vertData[o++]=p.hx[k+1]; vertData[o++]=p.hy[k+1]; vertData[o++]=a1; vertData[o++]=c0; vertData[o++]=c1; vertData[o++]=c2;
+    }
+  }
+  return o/6;
+}
+
+const IDENTITY = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+// 바다를 어둡게 덮는 전체화면 dim(밝은 지도에서도 입자가 또렷). clip-space 사각형 2개.
+const DIM = new Float32Array([
+ -1,-1,0.5,0.02,0.07,0.13,  1,-1,0.5,0.02,0.07,0.13,  -1,1,0.5,0.02,0.07,0.13,
+ -1, 1,0.5,0.02,0.07,0.13,  1,-1,0.5,0.02,0.07,0.13,   1,1,0.5,0.02,0.07,0.13 ]);
+
+const WaveLayer = {
+  id:'waves', type:'custom', prog:null, buf:null, broken:false,
+  onAdd(m, gl){
+    const vs='attribute vec2 a_pos;attribute float a_alpha;attribute vec3 a_color;'+
+      'uniform mat4 u_matrix;varying float v_a;varying vec3 v_c;'+
+      'void main(){gl_Position=u_matrix*vec4(a_pos,0.0,1.0);v_a=a_alpha;v_c=a_color;}';
+    const fs='precision mediump float;varying float v_a;varying vec3 v_c;'+
+      'void main(){gl_FragColor=vec4(v_c,v_a);}';
+    const sh=(t,src)=>{const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);return s;};
+    const p=gl.createProgram(); gl.attachShader(p,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(p);
+    this.prog=p; this.aPos=gl.getAttribLocation(p,'a_pos'); this.aAlpha=gl.getAttribLocation(p,'a_alpha');
+    this.aColor=gl.getAttribLocation(p,'a_color'); this.uMatrix=gl.getUniformLocation(p,'u_matrix'); this.buf=gl.createBuffer();
+  },
+  render(gl, matrix){
+    if(!waveOn || !grid || this.broken) return;
+    try {
+      gl.useProgram(this.prog); gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+      gl.enableVertexAttribArray(this.aPos);   gl.vertexAttribPointer(this.aPos,2,gl.FLOAT,false,24,0);
+      gl.enableVertexAttribArray(this.aAlpha); gl.vertexAttribPointer(this.aAlpha,1,gl.FLOAT,false,24,8);
+      gl.enableVertexAttribArray(this.aColor); gl.vertexAttribPointer(this.aColor,3,gl.FLOAT,false,24,12);
+      gl.enable(gl.BLEND);
+      // 1) 바다 dim (일반 블렌딩, identity 행렬 = clip space)
+      gl.uniformMatrix4fv(this.uMatrix,false,IDENTITY);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.bufferData(gl.ARRAY_BUFFER, DIM, gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES,0,6);
+      // 2) 입자 (가산 블렌딩으로 발광)
+      updateParticles();
+      const nv=buildVerts();
+      if(nv>0){
+        gl.uniformMatrix4fv(this.uMatrix,false,matrix);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        gl.bufferData(gl.ARRAY_BUFFER, vertData.subarray(0,nv*6), gl.DYNAMIC_DRAW);
+        gl.drawArrays(gl.LINES,0,nv);
+      }
+      map.triggerRepaint();
+    } catch(e){ this.broken=true; console.warn('WaveLayer 오류', e); }
+  }
+};
+
+// ---------- 토글 ----------
+const waveBtn = document.getElementById('wave'), legend = document.getElementById('legend');
+waveBtn.onclick = async () => {
+  waveOn = !waveOn;
+  waveBtn.classList.toggle('on', waveOn);
+  waveBtn.textContent = waveOn ? '🌊 파고 끄기' : '🌊 파고 보기';
+  legend.style.display = waveOn ? 'flex' : 'none';
+  if (waveOn) {
+    if (!map.getLayer('waves')) map.addLayer(WaveLayer);
+    particles = [];
+    // 1순위: NOAA 텍스처(상업가능, 한국·일본·동해 전체). 없으면 Open-Meteo(검증용 임시)로 폴백.
+    usingNoaa = false;
+    try { await loadNoaaTexture(); usingNoaa = true; }
+    catch (e) { console.warn('NOAA 텍스처 없음 → Open-Meteo 폴백', e); await fetchWaveGrid(); }
+  } else {
+    updateWaveStatus();
+    map.triggerRepaint();
+  }
+};
+map.on('moveend', () => {
+  if (!waveOn) return;
+  if (usingNoaa) {
+    particles = [];   // 새 화면 범위에 입자를 다시 채움(전역 텍스처는 재요청 불필요)
+    updateWaveStatus();
+    map.triggerRepaint();
+    return;
+  }
+  clearTimeout(debounceT);
+  debounceT = setTimeout(fetchWaveGrid, 700);
+});
+
+// =========================================================================
+// Phase 5 — 파고 위험경고 + 인스타 공유카드 / Phase 4 — 물때(있으면 표시)
+// =========================================================================
+
+// ---------- ① 파고 위험경고 (현재 화면 최대 파고) ----------
+const wstatus = document.getElementById('wstatus');
+let lastMax = null;   // 현재 화면 최대 파고(m) — 공유카드에서 재사용
+function updateWaveStatus(){
+  if (!waveOn || !grid) { wstatus.style.display='none'; lastMax=null; return; }
+  const b=map.getBounds();
+  const w=Math.max(b.getWest(),grid.minLng),  e=Math.min(b.getEast(),grid.maxLng);
+  const s=Math.max(b.getSouth(),grid.minLat), n=Math.min(b.getNorth(),grid.maxLat);
+  let mx=0, any=false;
+  if (e>w && n>s) {
+    for (let i=0;i<=16;i++) for (let j=0;j<=16;j++) {
+      const f=sampleField(w+(e-w)*j/16, s+(n-s)*i/16);
+      if (f) { any=true; if (f.m>mx) mx=f.m; }
+    }
+  }
+  if (!any) { wstatus.style.display='none'; lastMax=null; return; }
+  const meters = mx*(grid.dom||2.5);
+  lastMax = meters;
+  let cls='', label='잔잔';
+  if (meters>=2.0)      { cls='danger'; label='⚠️ 위험'; }
+  else if (meters>=1.0) { cls='warn';   label='주의'; }
+  wstatus.className = cls;
+  wstatus.style.display = 'flex';
+  wstatus.textContent = '🌊 현재 화면 최대 약 '+meters.toFixed(1)+'m · '+label;
+}
+
+// ---------- ② 인스타 공유 카드 (1080 정사각 캔버스) ----------
+document.getElementById('share').onclick = () => {
+  const S=1080, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
+  const x=cv.getContext('2d');
+  const bg=x.createLinearGradient(0,0,0,S); bg.addColorStop(0,'#0a2a45'); bg.addColorStop(1,'#06121f');
+  x.fillStyle=bg; x.fillRect(0,0,S,S);
+  const now=new Date();
+  const ymd=now.getFullYear()+'.'+String(now.getMonth()+1).padStart(2,'0')+'.'+String(now.getDate()).padStart(2,'0');
+  x.textAlign='left';
+  x.fillStyle='#34d0ff'; x.font='800 46px -apple-system,system-ui,sans-serif'; x.fillText('🌊 부산 파고', 80, 130);
+  x.fillStyle='#9fb6c9'; x.font='500 30px -apple-system,system-ui,sans-serif'; x.fillText(ymd+' · 연안 해루질', 80, 182);
+  if (lastMax!=null) {
+    let col='#36e07a', label='잔잔';
+    if (lastMax>=2.0)      { col='#ff4d4d'; label='위험'; }
+    else if (lastMax>=1.0) { col='#ffb13c'; label='주의'; }
+    x.fillStyle='#cfe0ee'; x.font='600 34px -apple-system,system-ui,sans-serif'; x.fillText('현재 화면 최대 파고', 80, 320);
+    x.fillStyle=col; x.font='800 150px -apple-system,system-ui,sans-serif'; x.fillText(lastMax.toFixed(1)+'m', 80, 470);
+    x.font='800 46px -apple-system,system-ui,sans-serif'; x.fillText(label, 80, 538);
+  } else {
+    x.fillStyle='#cfe0ee'; x.font='600 32px -apple-system,system-ui,sans-serif'; x.fillText("'파고 보기'를 켜면 수치가 표시됩니다", 80, 350);
+  }
+  let yy=660;
+  if (tideData && tideData.events && tideData.events.length) {
+    x.fillStyle='#cfe0ee'; x.font='700 38px -apple-system,system-ui,sans-serif'; x.fillText('🌙 오늘 물때', 80, yy); yy+=58;
+    x.font='600 32px -apple-system,system-ui,sans-serif';
+    tideData.events.slice(0,4).forEach(ev=>{
+      x.fillStyle = ev.kind==='high' ? '#34d0ff' : '#9fb6c9';
+      x.fillText((ev.kind==='high'?'만조 ':'간조 ')+(ev.time||'').slice(11,16)+'   '+Math.round(ev.level_cm)+'cm', 80, yy); yy+=48;
+    });
+  }
+  x.fillStyle='#6f8aa0'; x.font='500 22px -apple-system,system-ui,sans-serif';
+  x.fillText('© OpenStreetMap · 기상청 · 국립해양조사원 · NOAA', 80, S-104);
+  x.fillStyle='#34d0ff'; x.font='700 26px -apple-system,system-ui,sans-serif';
+  x.fillText('부산 파고 — 0원 해루질 지도 앱', 80, S-58);
+  cv.toBlob(async (blob)=>{
+    if (!blob) return;
+    const file=new File([blob],'busan-wave-'+ymd+'.png',{type:'image/png'});
+    if (navigator.canShare && navigator.canShare({files:[file]})) {
+      try { await navigator.share({files:[file], title:'부산 파고', text:'오늘 부산 파고·물때'}); return; } catch(e){}
+    }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=file.name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  }, 'image/png');
+};
+
+// ---------- ③ 물때 (Phase 4) — data/tide_busan.json 있으면 표시, 없으면 조용히 숨김 ----------
+let tideData=null;
+const tideBtn=document.getElementById('tideBtn'), tidePanel=document.getElementById('tidePanel'), tideRows=document.getElementById('tideRows');
+async function loadTide(){
+  try {
+    const r=await fetch('data/tide_busan.json',{cache:'no-store'});
+    if(!r.ok) return;                              // 키 미발급/파일 없음 → 물때 비활성(앱 정상)
+    const d=await r.json();
+    if(!d || !Array.isArray(d.events) || !d.events.length) return;
+    tideData=d;
+    tideRows.innerHTML = d.events.slice(0,6).map(ev=>
+      '<span class="ev '+(ev.kind==='high'?'high':'low')+'"><span class="k">'+(ev.kind==='high'?'만조':'간조')+'</span>'+
+      (ev.time||'').slice(11,16)+' · '+Math.round(ev.level_cm)+'cm</span>').join('');
+    tideBtn.style.display='block';
+  } catch(e) { /* 물때 데이터 없음 → 숨김 */ }
+}
+tideBtn.onclick=()=>{ tidePanel.style.display = (tidePanel.style.display==='block'?'none':'block'); };
+document.getElementById('tideX').onclick=()=>{ tidePanel.style.display='none'; };
+map.on('load', loadTide);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
