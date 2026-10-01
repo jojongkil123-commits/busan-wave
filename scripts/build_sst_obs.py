@@ -124,7 +124,8 @@ def latest(kind: str, code: str, now: datetime):
     for day in ([now - timedelta(days=1), now] if now.hour < 1 else [now]):
         js = get(kind, code, day.strftime("%Y%m%d"))
         rows += items(js) if js else []
-    best = None
+    best = None      # 가장 최근 값
+    hourly = None    # 가장 최근 '정시' 값 — 바다타임은 정시 관측(16:00·17:00)을 보여준다
     for r in rows:
         t = parse_dt(str(r.get("obsrvnDt") or ""))
         try:
@@ -135,9 +136,12 @@ def latest(kind: str, code: str, now: datetime):
             continue
         if best is None or t > best[0]:
             best = (t, w, r)
-    if not best or now - best[0] > timedelta(hours=MAX_AGE_H):
+        if t.minute == 0 and (hourly is None or t > hourly[0]):
+            hourly = (t, w, r)
+    pick = hourly or best
+    if not pick or now - pick[0] > timedelta(hours=MAX_AGE_H):
         return None
-    return best
+    return pick
 
 
 def discover_tw(now: datetime) -> list:
@@ -181,8 +185,23 @@ def main():
         else:
             print("해양관측부이 찾기 실패(키·활용신청·네트워크) — 이전 목록 유지", flush=True)
     tw_list = st.get("tw", [])
+    # 조위관측소: 기본 29곳 + 물때 관측소 목록(tide_stations.json)의 다른 DT_ 중 수온이 나오는 곳(가덕도·마산 등)
+    if not fresh or "dt_extra" not in st:
+        try:
+            with open(os.path.join(HERE, "tide_stations.json"), encoding="utf-8") as f:
+                extra = [s for s in json.load(f) if s["code"].startswith("DT_")
+                         and s["code"] not in {c for c, *_ in DT_STATIONS}]
+        except Exception:  # noqa: BLE001
+            extra = []
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            ok = [s for s, b in zip(extra, ex.map(lambda s: latest("DT", s["code"], now), extra)) if b]
+        st["dt_extra"] = [{"code": s["code"], "name": s["name"], "lat": s["lat"], "lon": s["lon"]} for s in ok]
+        with open(STATIONS, "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False, indent=0)
+        print(f"추가 조위관측소 수온 {len(ok)}곳: {', '.join(s['name'] for s in ok)}", flush=True)
+    dt_extra = [(s["code"], s["name"], s["lat"], s["lon"]) for s in st.get("dt_extra", [])]
 
-    jobs = [("DT", c, n, la, lo) for c, n, la, lo in DT_STATIONS] + \
+    jobs = [("DT", c, n, la, lo) for c, n, la, lo in DT_STATIONS + dt_extra] + \
            [("TW", s["code"], s["name"], s["lat"], s["lon"]) for s in tw_list]
 
     def run(j):
