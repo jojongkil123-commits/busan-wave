@@ -9,8 +9,8 @@
  "east": 179.75,
  "south": -90.0,
  "north": 90.0,
- "maxSstC": 44.944079589843795,
- "run": "20261001 06Z",
+ "maxSstC": 44.97370605468757,
+ "run": "20261001 18Z",
  "fh": 348,
  "sst": true,
  "source": "NOAA GFS surface temperature (public domain)"
