@@ -46,7 +46,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(HERE), "data", "tides")
 BUDGET = int(os.environ.get("TIDE_BUDGET", "7000"))      # 한 번 실행 최대 요청(공공데이터 개발계정 1일 10,000회/API)
 CR_DAYS = 17                                               # 조류: 어제 ~ +15일
-WORKERS = 4
+WORKERS = int(os.environ.get("TIDE_WORKERS", "6"))
+# 시간 예산(초) — 깃허브 러너에서 바다누리가 느리면 첫 수집(6천여 회)이 작업 제한(60분)을 넘길 수 있다.
+# 넘기면 아무것도 저장 못 하므로, 예산이 지나면 새 요청을 멈추고 받은 것까지 저장 → 다음 날 이어서 받는다(증분).
+TIME_BUDGET = int(os.environ.get("TIDE_TIME_BUDGET", "2400"))
+_t0 = time.time()
 
 _lock = threading.Lock()
 _used = {"hl": 0, "cr": 0}
@@ -160,7 +164,7 @@ def parse_cr(js, day: str) -> list:
 def fetch(kind: str, code: str, day: str):
     """한 관측소·하루. 거절(활용신청 없음)·한도면 그 API 는 이번 실행에서 멈춘다."""
     with _lock:
-        if _denied[kind] or sum(_used.values()) >= BUDGET:
+        if _denied[kind] or sum(_used.values()) >= BUDGET or time.time() - _t0 > TIME_BUDGET:
             return None
         _used[kind] += 1
     api = API_HL if kind == "hl" else API_CR
@@ -288,6 +292,8 @@ def main():
         json.dump({"generated": gen, "datum": "DL", "source": "국립해양조사원(KHOA) 바다누리",
                    "stations": rows, "currents": crow}, f, ensure_ascii=False, separators=(",", ":"))
     ok = sum(1 for r in rows if r["to"] and r["to"] >= (today + timedelta(days=15)).strftime("%Y-%m-%d"))
+    if time.time() - _t0 > TIME_BUDGET:
+        print(f"⏱ 시간 예산 {TIME_BUDGET}s 도달 — 받은 데까지 저장, 나머지는 다음 실행에서 이어 받음")
     print(f"물때 관측소 {len(rows)}곳(16일 다 채운 곳 {ok}) · 조류 지점 {len(crow)}곳 · 요청 물때 {_used['hl']} 조류 {_used['cr']}"
           f"{' · 조류 API 거절(활용신청 필요)' if _denied['cr'] else ''}{' · 물때 API 거절' if _denied['hl'] else ''}")
 
