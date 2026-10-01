@@ -21,10 +21,12 @@ jobs:
       - name: 물때 JSON 생성
         env:
           KHOA_KEY: ${{ secrets.KHOA_KEY }}
+          KHOA_RELAY: https://xlwrwaxfuwormfousesq.supabase.co/functions/v1/khoa-relay
         run: python3 scripts/build_tide.py
       - name: 전국 물때·조류 JSON 생성
         env:
           KHOA_KEY: ${{ secrets.KHOA_KEY }}
+          KHOA_RELAY: https://xlwrwaxfuwormfousesq.supabase.co/functions/v1/khoa-relay
         run: python3 scripts/build_tides.py
       - name: 커밋 & 푸시
         run: |

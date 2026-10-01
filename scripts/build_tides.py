@@ -42,6 +42,10 @@ if not KEY:
 KST = timezone(timedelta(hours=9))
 API_HL = "https://apis.data.go.kr/1192136/tideFcstHghLw/GetTideFcstHghLwApiService"
 API_CR = "https://apis.data.go.kr/1192136/crntFcstTime/GetCrntFcstTimeApiService"
+# ⭐ 2026-10-01: 깃허브 러너(미국)에서 apis.data.go.kr 가 통째로 타임아웃 → 서울 리전 Supabase 중계(khoa-relay)를 먼저 쓴다.
+#    중계가 없거나(404) 죽었으면 이번 실행은 직접 호출로 되돌아간다. 키는 중계에 저장되지 않고 그대로 전달된다.
+RELAY = os.environ.get("KHOA_RELAY", "").strip()
+_relay_ok = {"v": bool(RELAY)}
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(HERE), "data", "tides")
 BUDGET = int(os.environ.get("TIDE_BUDGET", "7000"))      # 한 번 실행 최대 요청(공공데이터 개발계정 1일 10,000회/API)
@@ -55,19 +59,29 @@ _t0 = time.time()
 _lock = threading.Lock()
 _used = {"hl": 0, "cr": 0}
 _denied = {"hl": False, "cr": False}
+_streak = {"fail": 0, "ok": 0}      # 연속 실패 — 서버가 아예 안 받으면 시간 낭비 없이 접는다
+DEAD_AFTER = 24
 
 
 def encode_key(k: str) -> str:
     return k if "%" in k else urllib.parse.quote(k, safe="")
 
 
-def get(api: str, params: list):
+def _request(api: str, params: list):
     q = "&".join(["serviceKey=" + encode_key(KEY)] + [f"{k}={urllib.parse.quote(str(v))}" for k, v in params])
-    req = urllib.request.Request(api + "?" + q, headers={"User-Agent": "busan-wave/1.0"})
+    if _relay_ok["v"]:
+        path = api.split("/1192136/", 1)[1]
+        return urllib.request.Request(RELAY + "?path=" + urllib.parse.quote(path, safe="/") + "&" + q,
+                                      headers={"User-Agent": "busan-wave/1.0", "x-region": "ap-northeast-2"})
+    return urllib.request.Request(api + "?" + q, headers={"User-Agent": "busan-wave/1.0"})
+
+
+def get(api: str, params: list):
     last = None
-    for attempt in range(3):
+    for attempt in range(2):
+        req = _request(api, params)
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=20) as resp:
                 raw = resp.read().decode("utf-8", "replace")
             try:
                 return json.loads(raw)
@@ -76,11 +90,17 @@ def get(api: str, params: list):
         except urllib.error.HTTPError as e:
             if e.code in (401, 403):            # 키 거절·활용신청 없음 — 재시도해도 같다
                 return {"resultCode": "30", "_http": e.code}
+            if _relay_ok["v"] and e.code in (400, 404):   # 중계 미배포·경로 불가 → 직접 호출로
+                with _lock:
+                    if _relay_ok["v"]:
+                        print(f"중계 응답 {e.code} → 이번 실행은 직접 호출", flush=True)
+                    _relay_ok["v"] = False
+                continue
             last = e
-            time.sleep(3 * (attempt + 1))
+            time.sleep(2 * (attempt + 1))
         except Exception as e:  # noqa: BLE001
             last = e
-            time.sleep(3 * (attempt + 1))
+            time.sleep(2 * (attempt + 1))
     raise last
 
 
@@ -166,6 +186,8 @@ def fetch(kind: str, code: str, day: str):
     with _lock:
         if _denied[kind] or sum(_used.values()) >= BUDGET or time.time() - _t0 > TIME_BUDGET:
             return None
+        if _streak["ok"] == 0 and _streak["fail"] >= DEAD_AFTER:
+            return None
         _used[kind] += 1
     api = API_HL if kind == "hl" else API_CR
     params = [("obsCode", code), ("reqDate", day.replace("-", "")), ("type", "json"), ("numOfRows", "300")]
@@ -174,8 +196,14 @@ def fetch(kind: str, code: str, day: str):
     try:
         js = get(api, params)
     except Exception as e:  # noqa: BLE001
+        with _lock:
+            _streak["fail"] += 1
+            if _streak["ok"] == 0 and _streak["fail"] == DEAD_AFTER:
+                print(f"처음부터 {DEAD_AFTER}번 연속 실패 — 바다누리가 응답하지 않음 → 이번 실행 중단(기존 자료 유지)", flush=True)
         print(f"[{kind}] {code} {day} 실패: {e}", flush=True)
         return None
+    with _lock:
+        _streak["ok"] += 1
     rc = result_code(js)
     if rc in DENY_CODES or rc in LIMIT_CODES:
         with _lock:

@@ -47,6 +47,16 @@ def fetch_day(yyyymmdd: str) -> dict:
     ])
     url = BASE + "?" + query
     req = urllib.request.Request(url, headers={"User-Agent": "busan-wave/1.0"})
+    # 2026-10-01: 미국 러너에서 바다누리가 응답하지 않아 서울 리전 중계(khoa-relay)를 먼저 쓴다(키는 그대로 전달)
+    relay = os.environ.get("KHOA_RELAY", "").strip()
+    if relay:
+        try:
+            r = urllib.request.Request(relay + "?path=tideFcstHghLw/GetTideFcstHghLwApiService&" + query,
+                                       headers={"User-Agent": "busan-wave/1.0", "x-region": "ap-northeast-2"})
+            with urllib.request.urlopen(r, timeout=30) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except Exception as e:  # noqa: BLE001
+            print(f"중계 실패({e}) → 직접 호출", flush=True)
 
     # ⚠️ 재시도 필수 — 이게 없어서 워크플로가 반복해서 죽었다(2026-08-09, 08-12 실패).
     #    바다누리(KHOA) 쪽이 새벽에 종종 20초를 넘긴다. 한 번 실패하면 그날 물때가
