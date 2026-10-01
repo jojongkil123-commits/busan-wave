@@ -7,7 +7,7 @@ build_tides.py — 전국 연안 물때(고·저조) + 부산권 조류예보 �
   · 조석예보(고저조) tideFcstHghLw  → data/tides/<obsCode>.json  (+ 하루 조차·물흐름 %)
   · 조류예보(시계열) crntFcstTime   → data/tides/crnt_<code>.json (활용신청이 안 돼 있으면 조용히 건너뜀)
   · 목록 data/tides/index.json
-관측소: scripts/tide_stations.json (조위관측소 DT_ + 남해·동해·제주 조석예보지점 SO_)
+관측소: scripts/tide_stations.json + scripts/tide_points_all.json(조석예보 지점 전수 173곳, 2026-10-01)
 조류예보지점: scripts/current_stations.json (부산·거제·통영·울산권)
 
 왜 서버에서 받나 (2026-10-01 조팀장 "만조·간조·물때·조류가 다 부정확"):
@@ -258,6 +258,14 @@ def main():
     cr_window = [(today + timedelta(days=d)).strftime("%Y-%m-%d") for d in range(-1, CR_DAYS - 1)]
 
     stations = load_json(os.path.join(HERE, "tide_stations.json"), [])
+    # ⭐ 2026-10-01: 조석예보 지점 전수 목록(discover_tide_points.py, 173곳)이 있으면 합친다 — 바다타임처럼
+    #    가까운 지점을 쓰게(예전 97곳). 코드가 겹치면 전수 목록의 이름·좌표(API 응답 그대로)를 쓴다.
+    allpts = load_json(os.path.join(HERE, "tide_points_all.json"), [])
+    if allpts:
+        byc = {s["code"]: s for s in stations}
+        for s in allpts:
+            byc[s["code"]] = s
+        stations = sorted(byc.values(), key=lambda s: s["code"])
     cstations = load_json(os.path.join(HERE, "current_stations.json"), [])
 
     # ── 물때(고저조) ──
