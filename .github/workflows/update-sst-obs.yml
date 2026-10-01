@@ -1,0 +1,35 @@
+# 국립해양조사원 실측 수온(조위관측소 + 해양관측부이) 최신값 — 1시간마다 (2026-10-01)
+# 앱 '이 지점 예보' 수온을 바다타임처럼 "가장 가까운 관측소의 지금 실측값"으로 맞추는 데 쓴다.
+# 비밀값 KHOA_KEY 필요. 미국 러너에서 data.go.kr 가 막히는 날이 있어 서울 중계(khoa-relay)를 먼저 쓴다.
+name: update-sst-obs
+on:
+  schedule:
+    - cron: "35 * * * *"    # 매시 35분 (관측 정시값이 올라온 뒤)
+  workflow_dispatch:
+concurrency:
+  group: sst-obs
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: 실측 수온 JSON 생성
+        env:
+          KHOA_KEY: ${{ secrets.KHOA_KEY }}
+          KHOA_RELAY: https://xlwrwaxfuwormfousesq.supabase.co/functions/v1/khoa-relay
+        run: python3 scripts/build_sst_obs.py
+      - name: 커밋 & 푸시
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          git add data/sst_obs.json data/sst_stations.json 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+          git commit -m "실측 수온 갱신 ($(date -u +%Y-%m-%dT%H:%MZ))"
+          for i in 1 2 3; do git pull --rebase && git push && break; sleep $((i*10)); done
