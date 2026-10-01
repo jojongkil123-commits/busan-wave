@@ -1,0 +1,28 @@
+# 국립해양조사원 조석예보 지점 전수 찾기 — 손으로만 실행 (2026-10-01)
+name: discover-tide-points
+on:
+  workflow_dispatch:
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: 지점 훑기
+        env:
+          KHOA_KEY: ${{ secrets.KHOA_KEY }}
+          KHOA_RELAY: https://xlwrwaxfuwormfousesq.supabase.co/functions/v1/khoa-relay
+        run: python3 scripts/discover_tide_points.py
+      - name: 커밋
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          git add scripts/tide_points_all.json || true
+          git diff --cached --quiet && exit 0
+          git commit -m "조석예보 지점 전수 목록 갱신"
+          for i in 1 2 3; do git pull --rebase && git push && break; sleep $((i*10)); done
