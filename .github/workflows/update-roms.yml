@@ -1,0 +1,59 @@
+# 국립해양조사원 ROMS 수치예측모델(3 km, 조석 포함) 조류 격자 — 하루 2번 (2026-10-08)
+# 왜: 앱 지도 '조류' 색 바탕(Open-Meteo 해류)은 부산 앞에서 대마난류(북동)가 압도해 밀물·썰물로 방향이 안 뒤집힌다.
+#     ROMS 는 조석을 넣은 3 km 모델 → data/roms/current_busan.json (앱 setCurrentField 와 같은 꼴) + data/roms/meta.json.
+# 비밀값 KHOA_KEY 필요(data.go.kr 15142227 활용신청 2026-10-08 승인, 개발계정 하루 10,000회 — 한 번에 약 700회 예상).
+# 게시 관문(2026-10-08 검토 수정): build_roms.py 가 KHOA 조류예보 지점과 대조해 유향·시간대 가정이 틀렸다고 보면(⚠️) 격자를 올리지 않고
+#   meta.json(last_attempt)에만 까닭을 남긴다 → 이 작업은 마지막 단계에서 '실패'로 끝나 메일이 간다. 첫 게시는 대조 '맞음' 뒤에만.
+# 시각(2026-10-08 검토 수정): 이 저장소의 스케줄은 실제로 2~6시간 늦게 돈다(9/10~10/8 update-wave 100회·update-tide 55회 기록).
+#   그 지연 분포로 'ROMS 푸시 순간 update-wave 가 실행 중'일 확률을 슬롯마다 셈 → 23:15Z·10:45Z 쌍이 가장 낮다(회당 평균 0.9%,
+#   예전 22:45Z·10:45Z 1.2%, 검토가 권한 03:45Z 는 2.2%). 시각만으로는 0 이 안 되므로 진짜 방어는 아래 커밋 단계(roms_commit_push.sh):
+#   update-wave 가 실행 중이면 기다렸다 푸시하고, 푸시 순간 실행 중이던 것이 끝나면 우리 커밋이 남았는지 확인해 지워졌으면 다시 올린다.
+# 중계(khoa-relay)는 'roms' 경로를 허용하지 않아 400 → 직접 호출로 바뀐다. 러너(미국)에서 data.go.kr 가 막히면
+#   첫 요청에서 바로 접고 이전 파일을 그대로 둔다(경고만 남김).
+# 커밋은 data/roms 만, 강제 푸시 없이 — 히스토리를 고쳐 쓰지 않는다. 메시지를 'auto:' 로 시작하지 않는다
+#   (update-wave 는 마지막 커밋이 'auto:' 일 때만 amend 한다).
+name: update-roms
+on:
+  schedule:
+    - cron: "15 23 * * *"   # 08:15 KST (실제 시작은 보통 2~5시간 뒤)
+    - cron: "45 10 * * *"   # 19:45 KST
+  workflow_dispatch:
+concurrency:
+  group: roms
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75          # 받기 ≤25분 + update-wave 기다림 ≤20분 + 푸시 뒤 확인 ≤25분
+    permissions:
+      contents: write
+      actions: read              # update-wave 가 실행 중인지 읽는다(커밋 단계)
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: ROMS 조류 격자 생성
+        id: build
+        env:
+          KHOA_KEY: ${{ secrets.KHOA_KEY }}
+          KHOA_RELAY: https://xlwrwaxfuwormfousesq.supabase.co/functions/v1/khoa-relay
+        run: python3 scripts/build_roms.py
+      - name: 커밋 & 푸시 (update-wave 와 엇갈리지 않게)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH: ${{ steps.build.outputs.publish }}
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          case "$PUBLISH" in
+            reject-hard) MSG="ROMS 게시 거부 기록 — KHOA 대조가 가정을 부정 (meta.json)";;
+            reject-soft) MSG="ROMS 게시 보류 기록 — 대조 '맞음' 전 (meta.json)";;
+            *)           MSG="ROMS 조류 격자 갱신";;
+          esac
+          bash scripts/roms_commit_push.sh "$MSG ($(date -u +%Y-%m-%dT%H:%MZ))"
+      - name: 게시 거부 알림
+        if: steps.build.outputs.publish == 'reject-hard'
+        run: |
+          echo "::error::KHOA 조류예보 대조가 ROMS 유향·시간대 가정을 부정해 격자를 올리지 않았다(앱은 CMEMS+'화살표 보세요' 그대로). data/roms/meta.json 의 last_attempt 를 보고 ROMS_DIR/ROMS_TZ 를 고칠 것."
+          exit 1
