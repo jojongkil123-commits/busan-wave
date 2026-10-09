@@ -21,10 +21,10 @@
    "cols": 421
   },
   "chunks": "{'time': 1, 'elevation': 1, 'latitude': 512, 'longitude': 2048}",
-  "open_s": 7.8,
-  "load_s": 35.4,
+  "open_s": 5.5,
+  "load_s": 17.2,
   "array_mb": 132.2,
-  "total_s": 43.4,
+  "total_s": 22.8,
   "grid_check": {
    "lat": [
     39.5,
@@ -796,7 +796,7 @@
   "empty_sea_hours": 0,
   "mask": "CMEMS 원파일 육지(채움값)"
  },
- "generated": "2026-10-09T20:05:08+09:00",
+ "generated": "2026-10-09T21:07:21+09:00",
  "changed": "2026-10-09T18:51:44+09:00",
  "t0": 1791471600,
  "n": 96,
@@ -816,10 +816,10 @@
  "file": {
   "path": "data/tidal/korea_tidal.json",
   "bytes": 6242900,
-  "gzip9_bytes": 1301729
+  "gzip9_bytes": 1301728
  },
  "last_attempt": {
-  "at": "2026-10-09T20:05:08+09:00",
+  "at": "2026-10-09T21:07:21+09:00",
   "status": "unchanged",
   "source_path": "cmems"
  },
@@ -827,7 +827,7 @@
   "file": {
    "path": "data/tidal/east_asia_tidal.json",
    "bytes": 10832410,
-   "gzip9_bytes": 1653578
+   "gzip9_bytes": 1653577
   },
   "grid": {
    "minLat": 18.0,
@@ -861,11 +861,11 @@
    "max_cms": 311,
    "core_overlap_identical": 1209
   },
-  "generated": "2026-10-09T20:05:08+09:00",
+  "generated": "2026-10-09T21:07:21+09:00",
   "changed": "2026-10-09T20:05:08+09:00",
   "last_attempt": {
-   "at": "2026-10-09T20:05:08+09:00",
-   "status": "published"
+   "at": "2026-10-09T21:07:21+09:00",
+   "status": "unchanged"
   }
  }
 }
