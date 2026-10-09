@@ -21,10 +21,10 @@
    "cols": 421
   },
   "chunks": "{'time': 1, 'elevation': 1, 'latitude': 512, 'longitude': 2048}",
-  "open_s": 4.1,
-  "load_s": 12.4,
+  "open_s": 6.1,
+  "load_s": 18.0,
   "array_mb": 132.2,
-  "total_s": 16.7,
+  "total_s": 24.3,
   "grid_check": {
    "lat": [
     39.5,
@@ -796,7 +796,7 @@
   "empty_sea_hours": 0,
   "mask": "CMEMS 원파일 육지(채움값)"
  },
- "generated": "2026-10-10T02:57:42+09:00",
+ "generated": "2026-10-10T03:05:25+09:00",
  "changed": "2026-10-10T02:57:42+09:00",
  "t0": 1791558000,
  "n": 96,
@@ -819,8 +819,8 @@
   "gzip9_bytes": 1314932
  },
  "last_attempt": {
-  "at": "2026-10-10T02:57:42+09:00",
-  "status": "published",
+  "at": "2026-10-10T03:05:25+09:00",
+  "status": "unchanged",
   "source_path": "cmems"
  },
  "wide": {
@@ -861,11 +861,11 @@
    "max_cms": 303,
    "core_overlap_identical": 1209
   },
-  "generated": "2026-10-10T02:57:42+09:00",
+  "generated": "2026-10-10T03:05:25+09:00",
   "changed": "2026-10-10T02:57:42+09:00",
   "last_attempt": {
-   "at": "2026-10-10T02:57:42+09:00",
-   "status": "published"
+   "at": "2026-10-10T03:05:25+09:00",
+   "status": "unchanged"
   }
  }
 }
