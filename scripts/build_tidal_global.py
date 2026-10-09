@@ -18,6 +18,7 @@ build_tidal_global.py — 전 세계 조류(조석 성분 utide·vtide) 2단계 
   ⚠️ open_dataset(chunk_size_limit=1) 필수 — 기본값(-1)은 dask 덩어리를 시각 50개로 묶어 한 시각만 읽어도 덩어리 통째를 받는다
      (2026-10-10 로컬 실측: 기본 483 MB·72 s·메모리 4.1 GB / 시각 → chunk_size_limit=1 은 9.4 MB·14 s·0.37 GB / 시각).
   2026-10-10 로컬 실측(한국 → 코페르니쿠스 저장소, 96시각 전체): 열기 14 s · 읽기 155–162 s · 줄이기 18–25 s · 받은 양 ≈ 880 MB · 최대 메모리 1.79 GB.
+  2026-10-10 깃허브 러너 실측(첫 실행): 열기 4 s · 읽기 62 s · 줄이기 26 s · 파일 쓰기 16 s · 최대 메모리 2.34 GB(받은 양은 같은 ≈ 0.88 GB).
 
 만드는 것 — 가지 'tidal-tiles'(main 과 이어지지 않는 부모 없는 커밋 하나, 실행마다 강제 푸시 — main 에는 안 넣는다)에
   index.json + <run>/L0.bin + <run>/L1/<key>.bin. 앱은 raw.githubusercontent.com 에서 받는다(키 없음·CORS *·ETag/304·Range·max-age 300).
@@ -159,14 +160,24 @@ def max_rss_gb():
 
 
 def net_rx_bytes():
-    """받은 바이트(기계 전체) — 리눅스 /proc/net/dev, macOS netstat. 못 읽으면 None"""
+    """받은 바이트(기본 경로 네트워크 하나) — 리눅스 /proc/net/dev, macOS netstat. 못 읽으면 None
+    (2026-10-10 실측) 깃허브 러너(Azure)는 eth0 와 가속 네트워크 VF(enP…)가 같은 흐름을 둘 다 세서 전부 더하면 2배(1.72 GB)로 나왔다
+    → 기본 경로(/proc/net/route 목적지 0)의 장치 하나만 센다."""
     try:
         if os.path.exists("/proc/net/dev"):
+            dev = None
+            with open("/proc/net/route") as f:
+                for line in f.readlines()[1:]:
+                    p = line.split()
+                    if len(p) > 1 and p[1] == "00000000":
+                        dev = p[0]
+                        break
             tot = 0
             with open("/proc/net/dev") as f:
                 for line in f.readlines()[2:]:
                     name, rest = line.split(":", 1)
-                    if name.strip() != "lo":
+                    name = name.strip()
+                    if (name == dev) if dev else name != "lo":
                         tot += int(rest.split()[0])
             return tot
         out = subprocess.run(["netstat", "-ib"], capture_output=True, text=True, timeout=10).stdout.splitlines()
@@ -294,7 +305,7 @@ def fetch_and_reduce(t0, n):
         "open_s": round(t_open, 1), "load_s": round(t_load, 1), "reduce_s": round(t_reduce, 1),
         "total_s": round(time.time() - t_start, 1),
         "download_mb": None if (rx is None or rx0 is None) else round((rx - rx0) / 1e6, 1),
-        "download_note": "기계 전체 받은 바이트(리눅스 /proc/net/dev·macOS netstat) — 다른 받기가 겹치면 조금 크게 잡힌다",
+        "download_note": "기본 경로 장치가 받은 바이트(리눅스 /proc/net/dev·macOS netstat en*) — 다른 받기가 겹치면 조금 크게 잡힌다",
         "max_rss_gb": round(max_rss_gb(), 2),
     }
     return L1u, L1v, L0u, L0v, info
