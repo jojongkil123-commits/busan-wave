@@ -37,15 +37,28 @@ API (Open-Meteo Marine — 앱 CurrentFieldService 와 같은 엔드포인트·�
   받은 라벨이 물은 곳과 다르면(Open-Meteo 격자가 바뀜) 위치 가정이 깨진 것이라 이번 실행을 버린다.
 
 출력 (앱과 고정 계약 — 2026-10-09):
-  data/tidal/korea_tidal.json
-    {"minLat":32.75,"maxLat":38.75,"minLng":124.0,"maxLng":132.0,"rows":73,"cols":97,"t0","n":96,
+  data/tidal/korea_tidal.json  — 촘촘한 전국(core)
+    {"minLat":32.0,"maxLat":39.5,"minLng":123.0,"maxLng":132.5,"rows":91,"cols":115,"t0","n":96,
      "src":"cmems-smoc-tide","unit":"cm/s","dirConv":"toward","step":3600,"generated","filter","spd":[…],"dir":[…]}
     점 순서 = 앱 CurrentFieldService·지도 sampleFieldRaw 와 같다: row-major, row0 = 북(maxLat), col0 = 서(minLng),
       각 점 안은 시간순 → spd[(r*cols+c)*n + k]. t0 = 실행일(KST) 00:00 의 epoch 초, 1시간 간격 n 개.
     spd = 조석 성분 유속 cm/s 정수, dir = 조석 흐름이 **흘러가는 쪽** 도(0=북, 90=동), 육지·자료 없음 = -1(둘 다).
     키 순서 고정 — 앱 디스크 사본 검사(hasPrefix('{"minLat"')·hasSuffix(']}'))와 맞게 dir 이 마지막.
-  data/tidal/meta.json — 출처·라이선스·격자·호출 수·필터·KHOA 대조·스펙트럼 점검·last_attempt
-  data/tidal/sea_mask.json — 배운 바다 마스크(행 문자열 73줄, 북→남, '1' 바다 '0' 육지). 지우면 다음 실행이 전부 다시 묻는다.
+  data/tidal/east_asia_tidal.json — 넓은 동아시아(wide), **같은 계약**(src·unit·dirConv·step·t0·n 이 같은 실행의 core 와 같다)
+    {"minLat":18.0,"maxLat":52.0,"minLng":115.0,"maxLng":150.0,"rows":137,"cols":141, …} 0.25° — 1/12° 격자점에서 세 칸마다 그대로.
+    (2026-10-09 검토 반영 — 처음 24–44N·117–141E 는 44N 에서 동해 한가운데가 가로줄로 끊기고 141E 에서 태평양이 세로줄로 끊겼다 →
+     동해·타타르 해협 끝(52N)·태평양 150E·대만·오키나와 남쪽(18N)까지. 52N 은 앱 해안선 자료(110–158E·8–52N)의 북쪽 끝이기도 하다.)
+  data/tidal/meta.json — 출처·라이선스·격자·호출 수·필터·KHOA 대조·스펙트럼 점검·last_attempt (+ "wide": 넓은 격자 상태)
+  data/tidal/sea_mask.json — Open-Meteo 대체 경로가 배운 바다 마스크(옛 상자 73×97, 행 문자열 73줄, 북→남, '1' 바다 '0' 육지).
+
+넓히기 (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국):
+  전국 화면에서 색이 사각 상자(124–132E·32.75–38.75N)에서 뚝 끊겼다 — 윈디는 모든 바다를 칠한다. 그래서
+  ① core 를 32.0–39.5N·123.0–132.5E(91×115, 1/12° 격자점 그대로)로 넓히고 ② 그 밖은 넓은 0.25° 격자로 칠한다(앱이 core 가장자리
+  3칸에서 부드럽게 섞는다). 둘 다 CMEMS 한 번 받기로 만든다(넓은 상자 18–52N 은 ARCO 위도 조각 두 줄 — core 만 받을 때의 약 2배, 2026-10-09 실측 ≈0.24 GB·35 s).
+  넓은 격자를 못 만들면(받기·검사 실패) 이전 east_asia_tidal.json 을 그대로 두고 core 만 올린다 — 남은 넓은 파일이 WIDE_STALE_DAYS(2)일 넘게
+  묵었거나(이틀 연속 못 만듦) 없거나 예보가 끝났으면 GITHUB_OUTPUT wide=stale → 워크플로가 실패로 끝나 메일이 간다(앱 타임라인 뒤쪽이 다시
+  사각 상자가 되기 전에 알게). 한 번 못 만든 것(하루 묵음 — 타임라인 마지막 하루만 core 만)은 경고만. Open-Meteo 대체 경로는 core 의
+  **옛 상자**(32.75–38.75/124–132, 바다 4,955점 — 무료 한도 그대로)만 채우고 새로 넓힌 테두리는 -1, 넓은 격자는 만들지 않는다.
 
 필터 (TIDAL_FILTER, 기본 godin):
   godin = Godin 24-24-25 시간 이동평균(71시간, 가운데 맞춤) — 조석 분리의 표준 저역통과. M2·S2·K1·O1 통과율이 모두 0.1% 안팎이라
@@ -81,13 +94,40 @@ ROOT = os.path.dirname(HERE)
 OUT_DIR = os.environ.get("TIDAL_OUT", os.path.join(ROOT, "data", "tidal"))
 TIDES_DIR = os.path.join(ROOT, "data", "tides")
 OUT_GRID = os.path.join(OUT_DIR, "korea_tidal.json")
+OUT_WIDE = os.path.join(OUT_DIR, "east_asia_tidal.json")      # (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국)
 OUT_META = os.path.join(OUT_DIR, "meta.json")
 OUT_MASK = os.path.join(OUT_DIR, "sea_mask.json")
 
+class Grid:
+    """격자 하나(row0 = 북, col0 = 서, 간격 d°) — core·wide·Open-Meteo 옛 상자 (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국)"""
+
+    def __init__(self, name, min_lat, max_lat, min_lng, max_lng, rows, cols, d):
+        self.name, self.min_lat, self.max_lat, self.min_lng, self.max_lng = name, min_lat, max_lat, min_lng, max_lng
+        self.rows, self.cols, self.d, self.size = rows, cols, d, rows * cols
+        assert abs(max_lat - min_lat - (rows - 1) * d) < 1e-9 and abs(max_lng - min_lng - (cols - 1) * d) < 1e-9, name
+
+    def box(self):
+        return (self.min_lat, self.max_lat, self.min_lng, self.max_lng, self.rows, self.cols)
+
+    def head(self):
+        return {"minLat": self.min_lat, "maxLat": self.max_lat, "minLng": self.min_lng, "maxLng": self.max_lng,
+                "rows": self.rows, "cols": self.cols}
+
+
 # 계약 격자 — SMOC 원격자(1/12°) 점에 맞춤 (2026-10-09 조팀장 요청: 윈디와 같은 조류, 전국)
-MIN_LAT, MAX_LAT, MIN_LNG, MAX_LNG = 32.75, 38.75, 124.0, 132.0
-ROWS, COLS = 73, 97
+# (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국) core 32.75–38.75/124–132(73×97) → 32.0–39.5/123.0–132.5(91×115).
+#   넓은 격자 18–52N·115–150E 0.25°(137×141) 를 따로 만든다(검토 반영 — 처음 24–44/117–141 은 동해 44N·태평양 141E 에서 끊김). Open-Meteo 대체 경로는 옛 상자(OMG)만 채워 core 에 끼운다.
 D = 1.0 / 12.0
+CORE = Grid("core", 32.0, 39.5, 123.0, 132.5, 91, 115, D)
+WIDE = Grid("wide", 18.0, 52.0, 115.0, 150.0, 137, 141, 0.25)   # (2026-10-09 검토 반영) 24–44/117–141 → 동해 끝·태평양까지
+WIDE_EVERY = 3                 # 넓은 격자 = 1/12° 격자점에서 세 칸마다(0.25°)
+OMG = Grid("om", 32.75, 38.75, 124.0, 132.0, 73, 97, D)
+OM_R0, OM_C0 = round((CORE.max_lat - OMG.max_lat) / D), round((OMG.min_lng - CORE.min_lng) / D)   # 옛 상자가 core 에 끼는 자리(9, 12)
+MIN_LAT, MAX_LAT, MIN_LNG, MAX_LNG = CORE.min_lat, CORE.max_lat, CORE.min_lng, CORE.max_lng
+ROWS, COLS = CORE.rows, CORE.cols
+CORE_SEA_RANGE = (6000, 9500)  # 2026-10-09 실측 core 바다 칸 7,901 · 옛 상자 4,987
+WIDE_SEA_RANGE = (10000, 15000)  # 2026-10-09 실측 넓은 격자 바다 칸 12,621 / 19,317 (18–52N·115–150E — 처음 24–44/117–141 땐 5,276 / 7,857)
+WIDE_STALE_DAYS = 2            # 남은 넓은 파일이 이 날수 이상 묵으면(이틀 연속 못 만듦) wide=stale → 워크플로 실패(메일) — (2026-10-09 검토 반영)
 OM_SHIFT = 1.0 / 24.0          # 계약점 P 는 Open-Meteo 칸 'P + 1/24' 로 받는다(위 '격자 위치' 참고)
 N_OUT = 96                     # 출력 시간 수(1시간 간격)
 SRC = "cmems-smoc-tide"
@@ -146,14 +186,15 @@ def write_atomic(path, text):
 
 # ── 격자 ────────────────────────────────────────────────────────────────────
 
-def point_latlon(i):
-    """계약 격자 i(row-major, row0=북) → (위도, 경도)"""
-    r, c = divmod(i, COLS)
-    return MAX_LAT - r * D, MIN_LNG + c * D
+def point_latlon(i, G=CORE):
+    """격자 G 의 점 i(row-major, row0=북) → (위도, 경도)"""
+    r, c = divmod(i, G.cols)
+    return G.max_lat - r * G.d, G.min_lng + c * G.d
 
 
 def req_latlon(i):
-    la, lo = point_latlon(i)
+    """Open-Meteo 대체 경로(옛 상자 OMG) 의 점 i → 물을 좌표"""
+    la, lo = point_latlon(i, OMG)
     return round(la + OM_SHIFT, 5), round(lo + OM_SHIFT, 5)
 
 
@@ -169,20 +210,20 @@ def load_mask():
         return None
     rows = m.get("rows")
     g = m.get("grid") or {}
-    if (not isinstance(rows, list) or len(rows) != ROWS or any(not isinstance(s, str) or len(s) != COLS for s in rows)
-            or g.get("minLat") != MIN_LAT or g.get("maxLat") != MAX_LAT or g.get("minLng") != MIN_LNG
-            or g.get("maxLng") != MAX_LNG or abs(float(m.get("om_shift", 0)) - OM_SHIFT) > 1e-6):
+    if (not isinstance(rows, list) or len(rows) != OMG.rows or any(not isinstance(s, str) or len(s) != OMG.cols for s in rows)
+            or g.get("minLat") != OMG.min_lat or g.get("maxLat") != OMG.max_lat or g.get("minLng") != OMG.min_lng
+            or g.get("maxLng") != OMG.max_lng or abs(float(m.get("om_shift", 0)) - OM_SHIFT) > 1e-6):
         log("⚠️ sea_mask.json 꼴·격자가 지금과 다름 → 무시하고 전부 묻는다")
         return None
     return [ch == "1" for s in rows for ch in s]
 
 
 def save_mask(sea, now):
-    rows = ["".join("1" if sea[r * COLS + c] else "0" for c in range(COLS)) for r in range(ROWS)]
+    rows = ["".join("1" if sea[r * OMG.cols + c] else "0" for c in range(OMG.cols)) for r in range(OMG.rows)]
     doc = {"note": "Open-Meteo SMOC(meteofrance_currents) 바다 칸 — '1' 바다 '0' 육지. 행 0 = 북(maxLat), 열 0 = 서(minLng). "
                    "cell_selection=nearest 에서 192시간 전부 null 이면 육지. 지우면 다음 실행이 전 격자를 다시 묻는다. "
                    "(2026-10-09 조팀장 요청: 윈디와 같은 조류, 전국)",
-           "grid": {"minLat": MIN_LAT, "maxLat": MAX_LAT, "minLng": MIN_LNG, "maxLng": MAX_LNG, "rows": ROWS, "cols": COLS},
+           "grid": OMG.head(),
            "om_shift": round(OM_SHIFT, 6), "learned": now.isoformat(timespec="seconds"),
            "sea_count": sum(sea), "land_count": len(sea) - sum(sea), "rows": rows}
     write_atomic(OUT_MASK, json.dumps(doc, ensure_ascii=False, indent=0))
@@ -466,8 +507,8 @@ def fnum(v):
     return None if (math.isnan(x) or math.isinf(x)) else x
 
 
-def load_stations():
-    """build_roms.py load_stations 와 같은 해석 — 'd' 16방위(가는 쪽), 's' cm/s, 시각 KST"""
+def load_stations(G=CORE):
+    """build_roms.py load_stations 와 같은 해석 — 'd' 16방위(가는 쪽), 's' cm/s, 시각 KST (격자 G 상자 안 지점만)"""
     out = []
     try:
         names = sorted(f for f in os.listdir(TIDES_DIR) if f.startswith("crnt_") and f.endswith(".json"))
@@ -478,7 +519,7 @@ def load_stations():
         if not isinstance(doc, dict):
             continue
         la, lo = fnum(doc.get("lat")), fnum(doc.get("lon"))
-        if la is None or lo is None or not (MIN_LAT <= la <= MAX_LAT and MIN_LNG <= lo <= MAX_LNG):
+        if la is None or lo is None or not (G.min_lat <= la <= G.max_lat and G.min_lng <= lo <= G.max_lng):
             continue
         ser = {}
         for day, evs in (doc.get("days") or {}).items():
@@ -507,7 +548,7 @@ def summarize(pairs):
             "dir_diff_med": round(sorted(ad)[n // 2]), "speed_ratio_med": round(rat[n // 2], 2)}
 
 
-def compare(spd, dvals, raw_at, sea, t0, n):
+def compare(spd, dvals, raw_at, sea, t0, n, G=CORE):
     """같은 시각끼리 — 가장 가까운 바다 칸(15 km 안) ↔ KHOA 지점, KHOA 유속 ≥ 20 cm/s 인 시각만.
     합성(raw)·조석 성분을 **같은 시각 집합**으로 비교한다. 조석 성분은 ±6시간 시차 점수(유속 가중 cos)도.
     raw_at = None 이면(CMEMS 직접 — 합성은 안 받는다) 조석 성분만 (2026-10-09 조팀장 요청: 윈디와 같은 조류, 전국)."""
@@ -516,14 +557,14 @@ def compare(spd, dvals, raw_at, sea, t0, n):
         no_raw = True
     else:
         no_raw = False
-    stations = load_stations()
+    stations = load_stations(G)
     res, all_raw, all_tid, lagp = [], [], [], []
     for st in stations:
         best, bd = None, 15.0
-        for i in range(ROWS * COLS):
+        for i in range(G.size):
             if not sea[i]:
                 continue
-            la, lo = point_latlon(i)
+            la, lo = point_latlon(i, G)
             if abs(la - st["lat"]) > 0.15 or abs(lo - st["lon"]) > 0.2:
                 continue
             if sum(1 for k in range(n) if spd[i * n + k] >= 0) < n * 0.5:
@@ -548,7 +589,7 @@ def compare(spd, dvals, raw_at, sea, t0, n):
                 ts, td = spd[best * n + k], dvals[best * n + k]
                 if kh and kh[0] >= 20 and ts >= 0:
                     lagp.append((lag, min(ts, kh[0]), math.cos(math.radians(td - kh[1]))))
-        la, lo = point_latlon(best)
+        la, lo = point_latlon(best, G)
         if no_raw:
             pr = []
         res.append({"code": st["code"], "name": st["name"], "cell": [round(la, 4), round(lo, 4)], "dist_km": round(bd, 1),
@@ -614,14 +655,14 @@ def zero_cross_period(u, v):
     return round(2 * sum(gaps) / len(gaps), 2), len(zc)
 
 
-def spectral_check(series, sea, times):
+def spectral_check(series, sea, times, G=OMG):
     out = []
     for name, la, lo in SAMPLES:
         best, bd = None, 30.0
-        for i in range(ROWS * COLS):
+        for i in range(G.size):
             if not sea[i] or i not in series:
                 continue
-            pla, plo = point_latlon(i)
+            pla, plo = point_latlon(i, G)
             if abs(pla - la) > 0.3 or abs(plo - lo) > 0.3:
                 continue
             d = km(la, lo, pla, plo)
@@ -650,7 +691,7 @@ def spectral_check(series, sea, times):
         raw_semi = semi(pw_raw_u) + semi(pw_raw_v)
         lp_semi = semi(pw_lp_u) + semi(pw_lp_v)
         per, ncross = zero_cross_period(tu, tv)
-        pla, plo = point_latlon(best)
+        pla, plo = point_latlon(best, G)
         sp = sorted(math.hypot(a, b) for a, b in zip(tu, tv))
         out.append({"name": name, "cell": [round(pla, 4), round(plo, 4)], "hours": len(tu),
                     "tidal_u_bands": bt, "tidal_v_bands": bt_v,
@@ -663,15 +704,14 @@ def spectral_check(series, sea, times):
 # ── 마무리 ─────────────────────────────────────────────────────────────────
 
 def finish_keep(reason, prev_meta, now, extra=None):
-    """korea_tidal.json 은 그대로. meta.json 의 last_attempt 에만 까닭. 옛 파일 예보도 끝났으면 'stale'."""
+    """korea_tidal.json 은 그대로. meta.json 의 last_attempt 에만 까닭. 옛 파일 예보도 끝났으면 'stale'.
+    넓은 격자(east_asia_tidal.json)도 그대로 — meta 'wide' 에 까닭을 남긴다(2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국)."""
     log(f"⚠️ {reason} → korea_tidal.json 그대로(덮어쓰지 않음). 호출 {_calls['locations']:,}")
-    prev = load_json(OUT_GRID, None)
-    stale = True
-    if isinstance(prev, dict) and isinstance(prev.get("t0"), (int, float)) and isinstance(prev.get("n"), int):
-        stale = prev["t0"] + 3600 * (prev["n"] - 1) < now.timestamp()
+    stale = grid_stale(OUT_GRID, now)
     meta = dict(prev_meta) if isinstance(prev_meta, dict) and prev_meta else {"src": SRC}
     meta["last_attempt"] = {"at": now.isoformat(timespec="seconds"), "status": "kept_previous", "reason": reason,
                             "previous_file_forecast_over": stale, "requests": dict(_calls, peak=_peak), **(extra or {})}
+    meta["wide"] = wide_keep_meta(prev_meta, now, "core 도 못 만듦 — " + reason[:200])
     write_atomic(OUT_META, json.dumps(meta, ensure_ascii=False, indent=1))
     flag = "stale" if stale else "keep"
     gh_output(publish=flag, reason=reason)
@@ -681,29 +721,77 @@ def finish_keep(reason, prev_meta, now, extra=None):
     sys.exit(0)
 
 
+def grid_stale(path, now):
+    """그 계약 파일의 예보가 이미 끝났나(없으면 True)"""
+    prev = load_json(path, None)
+    if isinstance(prev, dict) and isinstance(prev.get("t0"), (int, float)) and isinstance(prev.get("n"), int):
+        return prev["t0"] + 3600 * (prev["n"] - 1) < now.timestamp()
+    return True
+
+
+def grid_left_h(path, now):
+    """그 계약 파일의 (t0, 예보가 지금부터 몇 시간 남았나 = 마지막 예보 시각 − 지금). 없거나 못 읽으면 (None, None) (2026-10-09 검토 반영)"""
+    prev = load_json(path, None)
+    if isinstance(prev, dict) and isinstance(prev.get("t0"), (int, float)) and isinstance(prev.get("n"), int):
+        return prev["t0"], (prev["t0"] + 3600 * (prev["n"] - 1) - now.timestamp()) / 3600.0
+    return None, None
+
+
+def wide_keep_meta(prev_meta, now, reason):
+    """넓은 격자를 이번엔 못 만들었을 때 meta 'wide' — 이전 파일을 그대로 두고 까닭만 (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국)
+    (2026-10-09 검토 반영) 남은 파일이 WIDE_STALE_DAYS(2)일 이상 묵었거나(이틀 연속 못 만듦) 없거나 예보가 끝났으면 GITHUB_OUTPUT wide=stale
+    → 워크플로 마지막 단계가 실패로 끝나 메일이 간다. 앱은 넓은 파일이 안 덮는 시각을 core 만(사각 상자) 그리므로 조용히 넘기지 않는다.
+    한 번 못 만든 것(하루 묵음 — 타임라인 마지막 하루만 core 만)은 경고(::warning::)만."""
+    w = dict((prev_meta or {}).get("wide") or {})
+    exists = os.path.exists(OUT_WIDE)
+    pt0, left = grid_left_h(OUT_WIDE, now) if exists else (None, None)
+    age_d = None if pt0 is None else int((t_day_kst(now) - pt0) // 86400)
+    over = left is None or left < 0
+    stale = over or age_d is None or age_d >= WIDE_STALE_DAYS
+    w["last_attempt"] = {"at": now.isoformat(timespec="seconds"), "status": "kept_previous" if exists else "none",
+                         "reason": reason, "previous_exists": exists, "previous_file_forecast_over": over,
+                         "previous_age_days": age_d, "previous_left_h": None if left is None else round(left, 1), "stale": stale,
+                         "stale_rule": f"이전 파일이 {WIDE_STALE_DAYS}일 이상 묵음·없음·예보 끝남이면 워크플로 실패(메일)"}
+    log(f"⚠️ 넓은 격자: {reason} → {'이전 east_asia_tidal.json 그대로' + (f' ({age_d}일 묵음, 남은 예보 {left:.0f}시간)' if left is not None else '') if exists else '아직 파일 없음'}"
+        f"{' — stale: 워크플로를 실패로 끝낸다' if stale else ''}")
+    gh_output(wide="stale" if stale else "kept")
+    if os.environ.get("GITHUB_ACTIONS"):
+        lvl = "error" if stale else "warning"
+        print(f"::{lvl}::넓은 조류 격자(east_asia_tidal.json) 갱신 못 함 — {reason} (이전 파일 유지"
+              f"{', ' + str(age_d) + '일 묵음 · 남은 예보 ' + format(left, '.0f') + '시간' if left is not None else ', 파일 없음'}"
+              f"{' — 앱 타임라인 뒤쪽이 사각 상자(core 만)로 보인다' if stale else ''})")
+    return w
+
+
 def t_day_kst(now):
     """실행일(KST) 00:00 의 epoch 초 — 계약 t0 기본"""
     return int(datetime(now.year, now.month, now.day, tzinfo=KST).timestamp())
 
 
-GRID_META = {"minLat": MIN_LAT, "maxLat": MAX_LAT, "minLng": MIN_LNG, "maxLng": MAX_LNG, "rows": ROWS, "cols": COLS,
-             "dDeg": round(D, 6),
-             "order": "row-major, row0 = maxLat(북), col0 = minLng(서), 점 안은 시간순 → spd[(r*cols+c)*n+k] (앱 TidalFieldService·sampleFieldRaw 와 같음)"}
+ORDER_NOTE = "row-major, row0 = maxLat(북), col0 = minLng(서), 점 안은 시간순 → spd[(r*cols+c)*n+k] (앱 TidalFieldService·sampleFieldRaw 와 같음)"
+GRID_META = dict(CORE.head(), dDeg=round(D, 6), order=ORDER_NOTE)
 
 
-def write_outputs(now, prev_meta, t0, n, spd, dvals, filter_name, body):
-    """계약 파일 + meta.json (두 출처 공통) — 키 순서 고정(앱 디스크 사본 검사: '{"minLat"' 로 시작, ']}' 로 끝).
-    body = 출처별 meta(source·license·검증 …). (2026-10-09 조팀장 요청: 윈디와 같은 조류, 전국)"""
-    head = {"minLat": MIN_LAT, "maxLat": MAX_LAT, "minLng": MIN_LNG, "maxLng": MAX_LNG, "rows": ROWS, "cols": COLS,
-            "t0": t0, "n": n, "src": SRC, "unit": "cm/s", "dirConv": "toward", "step": 3600,
-            "generated": now.isoformat(timespec="seconds"), "filter": filter_name}
+def write_grid(path, G, now, t0, n, spd, dvals, filter_name):
+    """계약 파일 하나 — 키 순서 고정(앱 디스크 사본 검사: '{"minLat"' 로 시작, ']}' 로 끝). 자료가 같으면 안 쓴다.
+    돌려줌 (same, raw_bytes, gzip9_bytes). (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국 — core·wide 공통)"""
+    head = dict(G.head(), t0=t0, n=n, src=SRC, unit="cm/s", dirConv="toward", step=3600,
+                generated=now.isoformat(timespec="seconds"), filter=filter_name)
     text = (json.dumps(head, ensure_ascii=False, separators=(",", ":"))[:-1]
             + ',"spd":[' + ",".join(map(str, spd)) + '],"dir":[' + ",".join(map(str, dvals)) + "]}")
-    prev = load_json(OUT_GRID, None)
-    same = isinstance(prev, dict) and all(prev.get(k) == v for k, v in (("t0", t0), ("n", n), ("filter", filter_name),
-                                                                        ("spd", spd), ("dir", dvals)))
-    raw_bytes = len(text.encode("utf-8"))
-    gz_bytes = len(gzip.compress(text.encode("utf-8"), 9))
+    prev = load_json(path, None)
+    same = isinstance(prev, dict) and all(prev.get(k) == v for k, v in list(G.head().items()) + [
+        ("t0", t0), ("n", n), ("filter", filter_name), ("spd", spd), ("dir", dvals)])
+    raw = text.encode("utf-8")
+    if not same:
+        write_atomic(path, text)
+    return same, len(raw), len(gzip.compress(raw, 9))
+
+
+def write_outputs(now, prev_meta, t0, n, spd, dvals, filter_name, body, wide_meta=None, wide_changed=False):
+    """core 계약 파일 + meta.json (두 출처 공통). body = 출처별 meta(source·license·검증 …). (2026-10-09 조팀장 요청: 윈디와 같은 조류, 전국)
+    wide_meta = meta 'wide'(넓은 격자 결과 — 이번에 썼거나 이전 것 유지) (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국)"""
+    same, raw_bytes, gz_bytes = write_grid(OUT_GRID, CORE, now, t0, n, spd, dvals, filter_name)
     body = dict(body)
     grid = dict(GRID_META, **body.pop("grid_extra", {}))
     meta = {"src": SRC, **body,
@@ -716,10 +804,9 @@ def write_outputs(now, prev_meta, t0, n, spd, dvals, filter_name, body):
             "file": {"path": "data/tidal/korea_tidal.json", "bytes": raw_bytes, "gzip9_bytes": gz_bytes},
             "last_attempt": {"at": now.isoformat(timespec="seconds"), "status": "published" if not same else "unchanged",
                              "source_path": body.get("source_path")}}
-    if not same:
-        write_atomic(OUT_GRID, text)
+    meta["wide"] = wide_meta if wide_meta is not None else wide_keep_meta(prev_meta, now, "이번 출처로는 넓은 격자를 안 만듦")
     write_atomic(OUT_META, json.dumps(meta, ensure_ascii=False, indent=1))
-    gh_output(publish="publish" if not same else "unchanged")
+    gh_output(publish="publish" if (not same or wide_changed) else "unchanged")
     log(f"✅ {'저장' if not same else '자료 같음 — meta 만'}: {OUT_GRID} {raw_bytes / 1024:.0f} KB (gzip -9 {gz_bytes / 1024:.0f} KB) · "
         f"{ROWS}×{COLS}×{n}h · 출처 {body.get('source_path')} · {time.time() - _t0:.0f}s")
 
@@ -739,15 +826,15 @@ REGIONS = [("서해", lambda la, lo: lo < 126.6 and la > 34.6), ("남해", lambd
            ("부산·대한해협", lambda la, lo: 34.3 < la < 35.6 and 128.4 < lo < 129.8), ("동해", lambda la, lo: lo > 129.6 and la > 35.6)]
 
 
-def grid_checks(tu, tv, sea, n):
+def grid_checks(tu, tv, sea, n, G=CORE):
     """CMEMS 경로 점검 — 표본 지점 스펙트럼·영점 교차 주기, 해역별 유속 중앙값(동해가 1 cm/s 안팎이면 '조석만'이 맞다)"""
     spec = []
     for name, la, lo in SAMPLES:
         best, bd = None, 30.0
-        for i in range(ROWS * COLS):
+        for i in range(G.size):
             if not sea[i]:
                 continue
-            pla, plo = point_latlon(i)
+            pla, plo = point_latlon(i, G)
             if abs(pla - la) > 0.3 or abs(plo - lo) > 0.3:
                 continue
             d = km(la, lo, pla, plo)
@@ -756,7 +843,7 @@ def grid_checks(tu, tv, sea, n):
         if best is None:
             spec.append({"name": name, "cell": None})
             continue
-        r, c = divmod(best, COLS)
+        r, c = divmod(best, G.cols)
         u = [float(x) for x in tu[r, c, :]]
         v = [float(x) for x in tv[r, c, :]]
         if any(math.isnan(x) for x in u + v):
@@ -766,20 +853,20 @@ def grid_checks(tu, tv, sea, n):
         bv, _ = dft_bands(v)
         per, ncross = zero_cross_period(u, v)
         sp = sorted(math.hypot(a, b) for a, b in zip(u, v))
-        pla, plo = point_latlon(best)
+        pla, plo = point_latlon(best, G)
         spec.append({"name": name, "cell": [round(pla, 4), round(plo, 4)], "hours": n, "tidal_u_bands": bu, "tidal_v_bands": bv,
                      "zero_cross_period_h": per, "zero_crossings": ncross,
                      "tidal_speed_p50_p95_cms": [round(sp[len(sp) // 2]), round(sp[int(0.95 * (len(sp) - 1))])]})
     regions = {}
     for rn, f in REGIONS:
         vals = []
-        for i in range(ROWS * COLS):
+        for i in range(G.size):
             if not sea[i]:
                 continue
-            la, lo = point_latlon(i)
+            la, lo = point_latlon(i, G)
             if not f(la, lo):
                 continue
-            r, c = divmod(i, COLS)
+            r, c = divmod(i, G.cols)
             vals += [math.hypot(a, b) for a, b in zip(tu[r, c, :], tv[r, c, :]) if not (math.isnan(a) or math.isnan(b))]
         vals.sort()
         regions[rn] = {"cells_hours": len(vals), "p50_cms": round(vals[len(vals) // 2], 1) if vals else None,
@@ -787,30 +874,98 @@ def grid_checks(tu, tv, sea, n):
     return spec, regions
 
 
+def sanity(name, G, res, n, sea_range):
+    """받은 격자 검사 + 육지·빈칸 규약(둘 다 -1). 이상하면 예외 — (sea_n, hole, top)"""
+    spd, dvals, sea = res["spd"], res["dir"], res["sea"]
+    sea_n = sum(sea)
+    if not sea_range[0] <= sea_n <= sea_range[1]:
+        raise RuntimeError(f"{name}: 바다 칸 {sea_n} — 상자 {G.rows}×{G.cols} 에 이상한 수(기대 {sea_range[0]:,}–{sea_range[1]:,})")
+    hole = sum(1 for i in range(G.size) if sea[i] for k in range(n) if spd[i * n + k] < 0)
+    if hole > MISSING_MAX * sea_n * n:
+        raise RuntimeError(f"{name}: 바다 칸·시각 {hole}개 빔({hole / (sea_n * n):.1%})")
+    top = max(spd)
+    if top > 600:
+        raise RuntimeError(f"{name}: 유속 {top} cm/s — 깨진 값")
+    for i in range(G.size):
+        if not sea[i]:
+            for k in range(n):
+                spd[i * n + k] = dvals[i * n + k] = -1
+    return sea_n, hole, top
+
+
+def publish_wide(now, prev_meta, t0, n, res, core_res, filter_name):
+    """넓은 격자 검사·저장 → (meta 'wide', 바뀌었나). 실패는 예외(부른 쪽이 이전 파일 유지로)
+    (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국)"""
+    sea_n, hole, top = sanity("넓은 격자", WIDE, res, n, WIDE_SEA_RANGE)
+    # 같은 실행·같은 원격자 — core 상자 안의 넓은 격자점은 core 의 그 점과 **값이 같아야** 한다(뽑는 자리가 어긋나면 여기서 잡힌다)
+    k_ = WIDE_EVERY
+    same_pts = diff_pts = 0
+    for r in range(WIDE.rows):
+        la = WIDE.max_lat - r * WIDE.d
+        rc = round((CORE.max_lat - la) / D)
+        if not 0 <= rc < CORE.rows:
+            continue
+        for c in range(WIDE.cols):
+            lo = WIDE.min_lng + c * WIDE.d
+            cc = round((lo - CORE.min_lng) / D)
+            if not 0 <= cc < CORE.cols:
+                continue
+            iw, ic = r * WIDE.cols + c, rc * CORE.cols + cc
+            if res["spd"][iw * n:(iw + 1) * n] == core_res["spd"][ic * n:(ic + 1) * n] and \
+                    res["dir"][iw * n:(iw + 1) * n] == core_res["dir"][ic * n:(ic + 1) * n]:
+                same_pts += 1
+            else:
+                diff_pts += 1
+    if diff_pts:
+        raise RuntimeError(f"넓은 격자: core 상자 안 {same_pts + diff_pts}점 중 {diff_pts}점이 core 와 다름 — 뽑는 자리(세 칸마다)가 어긋남")
+    same, raw_bytes, gz_bytes = write_grid(OUT_WIDE, WIDE, now, t0, n, res["spd"], res["dir"], filter_name)
+    pw = (prev_meta or {}).get("wide") or {}
+    w = {"file": {"path": "data/tidal/east_asia_tidal.json", "bytes": raw_bytes, "gzip9_bytes": gz_bytes},
+         "grid": dict(WIDE.head(), dDeg=WIDE.d, order=ORDER_NOTE,
+                      every=f"1/12° 격자점에서 {k_}칸마다(0.25° 정수배 위경도) 그대로 — 값을 섞지 않음", grid_check=res["info"].get("grid_check")),
+         "t0": t0, "n": n, "src": SRC,
+         "points": {"sea": sea_n, "land": WIDE.size - sea_n, "empty_sea_hours": hole, "max_cms": top,
+                    "core_overlap_identical": same_pts},
+         "generated": now.isoformat(timespec="seconds"),
+         "changed": pw.get("changed") if same and pw.get("changed") else now.isoformat(timespec="seconds"),
+         "last_attempt": {"at": now.isoformat(timespec="seconds"), "status": "published" if not same else "unchanged"}}
+    gh_output(wide="published" if not same else "unchanged")
+    log(f"✅ 넓은 격자 {'저장' if not same else '자료 같음'}: {OUT_WIDE} {raw_bytes / 1024:.0f} KB (gzip -9 {gz_bytes / 1024:.0f} KB) · "
+        f"{WIDE.rows}×{WIDE.cols}×{n}h · 바다 칸 {sea_n:,} · 최대 {top} cm/s · core 겹친 {same_pts}점 값 같음")
+    return w, not same
+
+
 def run_cmems(now, prev_meta):
     """CMEMS 원파일 → 계약 파일. 실패는 예외로 알린다(부른 쪽이 auto 면 Open-Meteo 로 넘어간다)"""
     import tidal_cmems  # numpy·h5py·requests — Open-Meteo 경로는 이것들 없이도 돈다
     t0, n = t_day_kst(now), N_OUT
-    log(f"전국 조류(CMEMS utide·vtide 직접) — 격자 {ROWS}×{COLS} {MIN_LAT}–{MAX_LAT}N {MIN_LNG}–{MAX_LNG}E, "
+    log(f"전국 조류(CMEMS utide·vtide 직접) — core {ROWS}×{COLS} {MIN_LAT}–{MAX_LAT}N {MIN_LNG}–{MAX_LNG}E + 넓은 격자 "
+        f"{WIDE.rows}×{WIDE.cols} {WIDE.min_lat}–{WIDE.max_lat}N {WIDE.min_lng}–{WIDE.max_lng}E(0.25°), "
         f"{datetime.fromtimestamp(t0, KST):%m-%d %H:%M} KST 부터 {n}시간")
-    box = (MIN_LAT, MAX_LAT, MIN_LNG, MAX_LNG, ROWS, COLS)
+    box = CORE.box()
     # (2026-10-09) 조팀장 무료 계정 생김 → 공식 도구(로그인)로 받는다. 원파일 직접 읽기(로그인 없음)는 TIDAL_SOURCE=cmems-native 일 때만.
     native = SOURCE == "cmems-native"
-    res = tidal_cmems.build(t0, n, box) if native else tidal_cmems.build_toolbox(t0, n, box)
+    wide_res, wide_fail, fetch_info = None, None, None
+    if native:
+        res = tidal_cmems.build(t0, n, box)
+        wide_fail = "TIDAL_SOURCE=cmems-native — 넓은 격자는 공식 도구 경로에서만 만든다"
+    else:
+        # (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국) 넓은 상자를 1/12° 로 한 번 받아 core·wide 로 자른다.
+        #   넓은 받기가 실패하면 core 만 다시 받는다(넓은 격자는 이전 파일 유지).
+        fine = (WIDE.min_lat, WIDE.max_lat, WIDE.min_lng, WIDE.max_lng,
+                (WIDE.rows - 1) * WIDE_EVERY + 1, (WIDE.cols - 1) * WIDE_EVERY + 1)
+        try:
+            multi, fetch_info = tidal_cmems.build_toolbox_multi(
+                t0, n, fine, {"core": box + (1,), "wide": WIDE.box() + (WIDE_EVERY,)})
+            res, wide_res = multi["core"], multi["wide"]
+            log(f"받기 한 번(넓은 상자 1/12° {fine[4]}×{fine[5]}×{n}h): 열기 {fetch_info['open_s']}s · 읽기 {fetch_info['load_s']}s · "
+                f"배열 {fetch_info['array_mb']} MB · 조각 {fetch_info['chunks']}")
+        except Exception as e:  # noqa: BLE001
+            wide_fail = f"넓은 상자 받기 실패 — {type(e).__name__}: {str(e)[:200]}"
+            log(f"⚠️ {wide_fail} → core 만 다시 받는다")
+            res = tidal_cmems.build_toolbox(t0, n, box)
     spd, dvals, sea = res["spd"], res["dir"], res["sea"]
-    sea_n = sum(sea)
-    if not 3000 <= sea_n <= 6500:
-        raise RuntimeError(f"바다 칸 {sea_n} — 상자 {ROWS}×{COLS} 에 이상한 수(Open-Meteo 마스크 4,955)")
-    hole = sum(1 for i in range(ROWS * COLS) if sea[i] for k in range(n) if spd[i * n + k] < 0)
-    if hole > MISSING_MAX * sea_n * n:
-        raise RuntimeError(f"바다 칸·시각 {hole}개 빔({hole / (sea_n * n):.1%})")
-    top = max(spd)
-    if top > 600:
-        raise RuntimeError(f"유속 {top} cm/s — 깨진 값")
-    for i in range(ROWS * COLS):          # 육지·빈칸 규약: 둘 다 -1
-        if not sea[i]:
-            for k in range(n):
-                spd[i * n + k] = dvals[i * n + k] = -1
+    sea_n, hole, top = sanity("core", CORE, res, n, CORE_SEA_RANGE)
     info = res["info"]
     if native:
         log(f"바다 칸 {sea_n:,} / {ROWS * COLS:,} · 빈 칸·시각 {hole} · 최대 {top} cm/s · R{info['bulletin_R']} · "
@@ -826,6 +981,15 @@ def run_cmems(now, prev_meta):
                 f"{s['tidal_u_bands']['diurnal']:.0%} 우세 {s['tidal_u_bands']['dominant_period_h']}h · 영점교차 주기 {s['zero_cross_period_h']}h · "
                 f"유속 p50/p95 {s['tidal_speed_p50_p95_cms']} cm/s")
     log("  해역별 유속 중앙값(cm/s): " + " · ".join(f"{k} {v['p50_cms']}" for k, v in regions.items()))
+    filter_name = "none-cmems-utide-hh30mid" if native else "none-cmems-utide-arco"
+    wide_meta, wide_changed = None, False
+    if wide_res is not None:
+        try:
+            wide_meta, wide_changed = publish_wide(now, prev_meta, t0, n, wide_res, res, filter_name)
+        except Exception as e:  # noqa: BLE001 — 넓은 격자만 실패: core 는 그대로 올린다
+            wide_fail = f"넓은 격자 검사 실패 — {type(e).__name__}: {str(e)[:200]}"
+    if wide_meta is None:
+        wide_meta = wide_keep_meta(prev_meta, now, wide_fail or "?")
     body = {
         "source_path": "cmems-native" if native else "cmems",
         "source": ("CMEMS SMOC(GLOBAL_ANALYSISFORECAST_PHY_001_024, merged-uv 1시간) 원파일의 utide·vtide(조석 유속) 그대로 — "
@@ -841,16 +1005,20 @@ def run_cmems(now, prev_meta):
         "region_speed": regions,
         "points": {"sea": sea_n, "land": ROWS * COLS - sea_n, "empty_sea_hours": hole, "mask": "CMEMS 원파일 육지(채움값)"},
     }
-    write_outputs(now, prev_meta, t0, n, spd, dvals, "none-cmems-utide-hh30mid" if native else "none-cmems-utide-arco", body)
+    write_outputs(now, prev_meta, t0, n, spd, dvals, filter_name, body, wide_meta=wide_meta, wide_changed=wide_changed)
 
 
 # ── 출처 ② Open-Meteo 합성 − 저역통과 (대체 경로) ─────────────────────────────
 
 def run_openmeteo(now, prev_meta, cmems_fail=None):
+    """대체 경로 — (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국) core 가 넓어졌지만 Open-Meteo 호출 수를 그대로 두려고
+    **옛 상자(OMG 32.75–38.75/124–132, 바다 4,955점)**만 받는다. 만든 값은 core 격자의 (9, 12) 자리에 끼우고 새 테두리는 -1(앱은 그 밖을
+    넓은 격자로 칠한다). 넓은 격자는 만들지 않는다(이전 파일 유지)."""
+    G = OMG
     mask = load_mask()
-    all_idx = list(range(ROWS * COLS))
+    all_idx = list(range(G.size))
     todo = [i for i in all_idx if mask[i]] if mask else all_idx
-    log(f"전국 조류(Open-Meteo 합성 − 저역통과) — 격자 {ROWS}×{COLS} {MIN_LAT}–{MAX_LAT}N {MIN_LNG}–{MAX_LNG}E, 필터 {FILTER_NAME}"
+    log(f"전국 조류(Open-Meteo 합성 − 저역통과) — 옛 상자 {G.rows}×{G.cols} {G.min_lat}–{G.max_lat}N {G.min_lng}–{G.max_lng}E → core 에 끼움, 필터 {FILTER_NAME}"
         f"(±{HALF}h) → past_days={PAST_DAYS}, forecast_days={FORECAST_DAYS}, 마스크 {'있음' if mask else '없음(전부 묻는다)'}")
 
     if RAW_LOAD:
@@ -902,7 +1070,7 @@ def run_openmeteo(now, prev_meta, cmems_fail=None):
         log(f"⚠️ 시간 축 조정: t0 {datetime.fromtimestamp(t0, KST):%m-%d %H시} · {n}시간 (계약 기본 00시·{N_OUT}시간)")
 
     series = {i: uv_series(vs, ds) for i, (vs, ds) in got.items() if sea[i]}
-    spd, dvals = [-1] * (ROWS * COLS * n), [-1] * (ROWS * COLS * n)
+    spd, dvals = [-1] * (G.size * n), [-1] * (G.size * n)
     missing = 0
     for i in all_idx:
         if not sea[i]:
@@ -923,7 +1091,7 @@ def run_openmeteo(now, prev_meta, cmems_fail=None):
         if bad > 0.1 * n:
             missing += 1
     miss_pct = missing / max(1, sea_n)
-    log(f"바다 칸 {sea_n:,} / {ROWS * COLS:,} · 빠짐 {missing}({miss_pct:.1%}) · {n}시간 "
+    log(f"바다 칸 {sea_n:,} / {G.size:,} · 빠짐 {missing}({miss_pct:.1%}) · {n}시간 "
         f"{datetime.fromtimestamp(t0, KST):%m-%d %H:%M} ~ {datetime.fromtimestamp(t0 + 3600 * (n - 1), KST):%m-%d %H:%M} KST")
     if failed and not mask:
         # 마스크를 배우는 실행인데 못 받은 점이 있으면 그 점은 바다인지 모른다 → 빠짐으로 센다
@@ -951,9 +1119,9 @@ def run_openmeteo(now, prev_meta, cmems_fail=None):
             vv += 0.5 * c * math.cos(th)
         return math.hypot(uu, vv), math.degrees(math.atan2(uu, vv)) % 360.0
 
-    check = compare(spd, dvals, raw_at, sea, t0, n)
+    check = compare(spd, dvals, raw_at, sea, t0, n, G)
     log_check(check)
-    spec = spectral_check(series, sea, times)
+    spec = spectral_check(series, sea, times, G)
     for s in spec:
         if s.get("cell"):
             log(f"  스펙트럼 {s['name']} {s['cell']}: 조석 u 반일주 {s['tidal_u_bands']['semidiurnal']:.0%}·일주 "
@@ -964,7 +1132,7 @@ def run_openmeteo(now, prev_meta, cmems_fail=None):
     mask_learned = not mask
     if mask_learned and not failed:
         save_mask([has.get(i, False) for i in all_idx], now)
-        log(f"바다 마스크 저장: 바다 {sea_n:,} · 육지 {ROWS * COLS - sea_n:,} → {OUT_MASK}")
+        log(f"바다 마스크 저장: 바다 {sea_n:,} · 육지 {G.size - sea_n:,} → {OUT_MASK}")
     freq = {"M2_12.42h": 1 / 12.42, "S2_12h": 1 / 12.0, "K1_23.93h": 1 / 23.93, "O1_25.82h": 1 / 25.82,
             "inertial_35N_20.9h": 1 / 20.9, "2day_48h": 1 / 48.0, "3day_72h": 1 / 72.0}
     body = {
@@ -984,7 +1152,7 @@ def run_openmeteo(now, prev_meta, cmems_fail=None):
         "grid_extra": {"om_request_shift_deg": round(OM_SHIFT, 6),
                        "om_shift_evidence": "Open-Meteo 라벨 (j+.5)/12 의 값 = CMEMS 격자점 j/12 로 봄 — 해안선 대조: 다도해 216칸 일치 0.903(라벨 그대로 0.861), "
                                             "전국 7,081칸 brier 0.0200(0.0244)·일치 0.971(0.966). 경도는 해안칸만 세면 라벨 그대로가 0.766 vs 0.749 — ±1/24° 불확실 (2026-10-09)"},
-        "points": {"sea": sea_n, "land": ROWS * COLS - sea_n, "missing": missing, "missing_pct": round(100 * miss_pct, 2),
+        "points": {"sea": sea_n, "land": G.size - sea_n, "missing": missing, "missing_pct": round(100 * miss_pct, 2),
                    "mask": "learned_this_run" if mask_learned else "sea_mask.json"},
         "requests": {"locations_called": _calls["locations"], "http_requests": _calls["requests"], "ok": _calls["ok"],
                      "fail": _calls["fail"], "http429": _calls["http429"], "waited_s": round(_calls["waited_s"]),
@@ -1005,7 +1173,17 @@ def run_openmeteo(now, prev_meta, cmems_fail=None):
         "validation": check,
         "spectral_check": spec,
     }
-    write_outputs(now, prev_meta, t0, n, spd, dvals, FILTER_NAME + "-hh30mid", body)
+    # 옛 상자 → core 격자에 끼우기 (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국) — 새 테두리 칸은 -1
+    body["grid_extra"]["om_box"] = dict(G.head(), core_offset_rc=[OM_R0, OM_C0],
+                                        note="Open-Meteo 대체 경로는 옛 상자만 채움 — core 의 나머지 칸은 -1(앱이 넓은 격자로 칠함)")
+    cs, cd = [-1] * (CORE.size * n), [-1] * (CORE.size * n)
+    for r in range(G.rows):
+        for c in range(G.cols):
+            i, j = r * G.cols + c, (r + OM_R0) * CORE.cols + (c + OM_C0)
+            cs[j * n:(j + 1) * n] = spd[i * n:(i + 1) * n]
+            cd[j * n:(j + 1) * n] = dvals[i * n:(i + 1) * n]
+    write_outputs(now, prev_meta, t0, n, cs, cd, FILTER_NAME + "-hh30mid", body,
+                  wide_meta=wide_keep_meta(prev_meta, now, "Open-Meteo 대체 경로 — 넓은 격자는 CMEMS 에서만 만든다"))
 
 
 def main():

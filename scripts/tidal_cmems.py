@@ -352,8 +352,18 @@ def build(t0, n, box, workers=WORKERS):
 DATASET_ID = "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"
 
 
-def build_toolbox(t0, n, box):
-    """공식 도구로 utide·vtide 를 계약 격자·시각 그대로 받는다. 돌려줌은 build() 와 같은 꼴."""
+def _contract(tu, tv, n):
+    """(rows, cols, n) cm/s 배열 → 계약 값(spd·dir 정수 목록, -1 = 육지·빈칸) + 바다 칸. build_toolbox·build_toolbox_multi 공통"""
+    sea = np.isfinite(tu).sum(axis=2) >= 0.9 * n
+    valid = np.isfinite(tu) & np.isfinite(tv) & sea[:, :, None]
+    sp = np.where(valid, np.rint(np.hypot(tu, tv)), -1).astype(int)
+    dr = np.where(valid, np.rint(np.degrees(np.arctan2(tu, tv))) % 360, -1).astype(int)
+    dr[valid & (dr == 360)] = 0
+    return sp, dr, sea
+
+
+def _toolbox_fetch(t0, n, box):
+    """공식 도구로 box(1/12° 격자점) 의 utide·vtide 를 계약 시각 그대로 → (tu, tv: (rows, cols, n) cm/s 북쪽 행부터, 육지 nan), info"""
     import copernicusmarine  # 워크플로에서 pip 설치. 없으면 ImportError → 부른 쪽이 다음 경로로
     if not (os.environ.get("COPERNICUSMARINE_SERVICE_USERNAME") and os.environ.get("COPERNICUSMARINE_SERVICE_PASSWORD")):
         raise RuntimeError("코페르니쿠스 계정 환경변수 없음(CMEMS_USERNAME/CMEMS_PASSWORD 비밀값)")
@@ -365,6 +375,7 @@ def build_toolbox(t0, n, box):
         dataset_id=DATASET_ID, variables=["utide", "vtide"],
         minimum_longitude=min_lng, maximum_longitude=max_lng, minimum_latitude=min_lat, maximum_latitude=max_lat,
         start_datetime=start.strftime("%Y-%m-%dT%H:%M:%S"), end_datetime=end.strftime("%Y-%m-%dT%H:%M:%S"))
+    t_open = time.time() - t_start
     if "depth" in ds.dims:
         ds = ds.isel(depth=0)
     lat = ds["latitude"].values.astype(float)
@@ -375,10 +386,12 @@ def build_toolbox(t0, n, box):
     times = (ds["time"].values.astype("datetime64[s]").astype("int64")).tolist()
     want = [t0 + 3600 * k for k in range(n)]
     pos = {t: i for i, t in enumerate(times)}
+    t_load0 = time.time()
     U = ds["utide"].transpose("time", "latitude", "longitude").values
     V = ds["vtide"].transpose("time", "latitude", "longitude").values
+    t_load = time.time() - t_load0
     north_first = lat[0] > lat[-1]
-    tu = np.full((rows, cols, n), np.nan)
+    tu = np.full((rows, cols, n), np.nan)               # float64 — 예전 build_toolbox 와 같은 반올림(유속·방향 정수값이 바이트까지 같게)
     tv = np.full((rows, cols, n), np.nan)
     got = 0
     for k, t in enumerate(want):
@@ -393,18 +406,60 @@ def build_toolbox(t0, n, box):
         got += 1
     if got < n:
         raise RuntimeError(f"시각 {got}/{n}개만 있음 ({start:%m-%d %H}Z–{end:%m-%d %H}Z) — 예보가 아직 그만큼 안 나왔을 수 있음")
-    sea = np.isfinite(tu).sum(axis=2) >= 0.9 * n
-    valid = np.isfinite(tu) & np.isfinite(tv) & sea[:, :, None]
-    sp = np.where(valid, np.rint(np.hypot(tu, tv)), -1).astype(int)
-    dr = np.where(valid, np.rint(np.degrees(np.arctan2(tu, tv))) % 360, -1).astype(int)
-    dr[valid & (dr == 360)] = 0
+    lat_n = lat[::-1] if not north_first else lat                 # 북쪽 행부터의 위도(격자 맞춤 검사용)
     info = {
         "via": "copernicusmarine " + getattr(copernicusmarine, "__version__", "?") + " open_dataset (ARCO, 로그인)",
         "dataset_id": DATASET_ID,
         "source_times": [start.isoformat(timespec="minutes"), end.isoformat(timespec="minutes")],
         "time_label": "공식 도구 표기 그대로(HH:00) — 원파일 HH:30 값과 같은 값. KHOA 대조로 이쪽이 더 맞아 보간하지 않음",
+        "request_box": {"minLat": min_lat, "maxLat": max_lat, "minLng": min_lng, "maxLng": max_lng, "rows": rows, "cols": cols},
+        "chunks": str(ds["utide"].encoding.get("preferred_chunks") or ds["utide"].encoding.get("chunks") or "?"),
+        "open_s": round(t_open, 1), "load_s": round(t_load, 1),
+        "array_mb": round((U.nbytes + V.nbytes) / 1e6, 1),
         "total_s": round(time.time() - t_start, 1),
-        "sea_hours_missing": int((~np.isfinite(tu[sea])).sum()) if sea.any() else 0,
     }
+    return tu, tv, lat_n, lon, info
+
+
+def build_toolbox(t0, n, box):
+    """공식 도구로 utide·vtide 를 계약 격자·시각 그대로 받는다. 돌려줌은 build() 와 같은 꼴."""
+    tu, tv, _, _, info = _toolbox_fetch(t0, n, box)
+    sp, dr, sea = _contract(tu, tv, n)
+    info["sea_hours_missing"] = int((~np.isfinite(tu[sea])).sum()) if sea.any() else 0
     return {"spd": sp.reshape(-1).tolist(), "dir": dr.reshape(-1).tolist(), "sea": sea.reshape(-1).tolist(),
             "tu": tu, "tv": tv, "info": info}
+
+
+# ── 한 번 받아 두 격자로 (2026-10-09 조팀장 요청: 최대한 윈디와 같게 — 가장자리 없이 전국) ─────────────────
+# 왜: 전국 화면에서 색이 사각 상자(124–132E·32.75–38.75N)에서 뚝 끊겼다 — 윈디는 모든 바다를 칠한다.
+#   ① 촘촘한 전국(core) 32.0–39.5N·123.0–132.5E 1/12° 91×115 — 앱이 부산·전국을 그리는 주 격자(KHOA 대조도 이것)
+#   ② 넓은 동아시아(wide) 18–52N·115–150E 0.25° 137×141 — core 밖(중국·일본·대만·동해 끝·태평양)을 칠하는 성긴 격자
+#      (검토 반영: 처음 24–44N·117–141E 는 동해 44N·태평양 141E 바다 한가운데에서 직선으로 끊겼다).
+#      1/12° 격자점에서 세 칸마다(0.25° 의 정수배 위경도) 그대로 뽑는다 — 값을 섞거나 평균 내지 않는다.
+# 받기: ARCO 조각이 (시각 1, 위도 512, 경도 2048) — 위도 5.33–47.92N 이 한 조각, 48.0N 부터 다음 조각, 경도 −9.33–161.25E 가 한 조각.
+#   넓은 상자(18–52N)는 위도 조각 두 줄에 걸쳐 core 만 받을 때의 약 2배를 받는다(2026-10-09 실측: 1/12° 409×421×96h 를 한 번에 —
+#   열기 7.8 s · 읽기 35 s · 받은 양 ≈ 0.24 GB · 배열 132 MB · 최대 메모리 ≈ 1.5 GB). 그래도 한 번만 받아 둘로 자른다.
+def build_toolbox_multi(t0, n, fetch_box, outs):
+    """fetch_box(1/12°)를 한 번 받아 outs 의 격자로 자른다.
+    outs = {이름: (minLat, maxLat, minLng, maxLng, rows, cols, 몇 칸마다)} — 격자점이 1/12° 격자에 정확히 있어야 한다(아니면 예외).
+    돌려줌 = {이름: build_toolbox 와 같은 꼴}, 받기 info"""
+    tu, tv, lat_n, lon, info = _toolbox_fetch(t0, n, fetch_box)
+    res = {}
+    for name, (min_lat, max_lat, min_lng, max_lng, rows, cols, step) in outs.items():
+        r0 = int(np.argmin(np.abs(lat_n - max_lat)))
+        c0 = int(np.argmin(np.abs(lon - min_lng)))
+        rs = slice(r0, r0 + (rows - 1) * step + 1, step)
+        cs = slice(c0, c0 + (cols - 1) * step + 1, step)
+        la, lo = lat_n[rs], lon[cs]
+        if (len(la) != rows or len(lo) != cols or abs(la[0] - max_lat) > 1e-3 or abs(la[-1] - min_lat) > 1e-3
+                or abs(lo[0] - min_lng) > 1e-3 or abs(lo[-1] - max_lng) > 1e-3
+                or np.abs(np.diff(la) + step / 12.0).max() > 1e-3 or np.abs(np.diff(lo) - step / 12.0).max() > 1e-3):
+            raise RuntimeError(f"{name}: 격자점이 1/12° 격자와 안 맞음 {len(la)}×{len(lo)} lat {la[0]:.4f}…{la[-1]:.4f} lon {lo[0]:.4f}…{lo[-1]:.4f}")
+        su, sv = tu[rs, cs, :].astype(float), tv[rs, cs, :].astype(float)
+        sp, dr, sea = _contract(su, sv, n)
+        sub = dict(info, grid_check={"lat": [round(float(la[0]), 4), round(float(la[-1]), 4)],
+                                     "lon": [round(float(lo[0]), 4), round(float(lo[-1]), 4)], "every": step},
+                   sea_hours_missing=int((~np.isfinite(su[sea])).sum()) if sea.any() else 0)
+        res[name] = {"spd": sp.reshape(-1).tolist(), "dir": dr.reshape(-1).tolist(), "sea": sea.reshape(-1).tolist(),
+                     "tu": su, "tv": sv, "info": sub}
+    return res, info
