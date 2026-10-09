@@ -22,6 +22,13 @@
 # 실패(①·② 둘 다 — 받기 중단·바다 칸 5% 넘게 빠짐·격자 가정 깨짐)면 korea_tidal.json 은 그대로 두고 meta.json(last_attempt)만 올린다.
 #   남은 옛 파일의 예보까지 끝났으면(stale) 마지막 단계를 실패로 끝내 메일이 가게 한다.
 # 커밋은 data/tidal 만, 강제 푸시 없이. 메시지를 'auto:' 로 시작하지 않는다(update-wave 는 마지막 커밋이 'auto:' 일 때만 amend 한다).
+# (2026-10-10 조팀장 요청: 전 세계 조류 · 윈디처럼 부드럽게) korea/east_asia 를 올린 **뒤에** 전 세계 격자를 만든다(scripts/build_tidal_global.py):
+#   같은 CMEMS utide·vtide 를 전 지구 1/12° 로 6시각씩 흘려 읽어(2026-10-10 로컬 실측 96시각 ≈ 0.88 GB·≈ 4.5분·최대 메모리 1.8 GB)
+#   L0 1° 전 지구(≈ 3.0 MB) + L1 0.25° 10°×10° 타일 545개(평균 51 KB) = 실행당 ≈ 31 MB 를 만들고, east_asia·korea 와 겹치는 점을 맞대 본 뒤
+#   가지 'tidal-tiles'(부모 없는 커밋 하나 — 역사가 쌓이지 않게)에 **그 가지만** 강제 푸시한다. main 에는 안 넣는다(저장소가 이미 ≈ 6 GB).
+#   앱은 https://raw.githubusercontent.com/jojongkil123-commits/busan-wave/tidal-tiles/index.json 을 읽는다.
+#   전 세계 쪽이 실패해도 korea/east_asia 는 이미 올라갔고(단계 순서), 공개된 이전 것은 그대로 남는다(경고만).
+#   공개 index 가 2일 이상 묵었거나·없거나·예보가 끝났으면 마지막 단계가 실패로 끝나 메일이 간다.
 name: update-tidal
 on:
   schedule:
@@ -33,7 +40,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 150         # ① CMEMS(공식 도구, core+넓은 격자 한 번에) ≈1~2분 · ② 대체 경로 받기 ≤90분(보통 ≈62분) + update-wave 기다림 ≤20분 + 푸시 뒤 확인 ≤25분
+    timeout-minutes: 180         # ① CMEMS(공식 도구, core+넓은 격자 한 번에) ≈1~2분 · ② 대체 경로 받기 ≤90분(보통 ≈62분) + update-wave 기다림 ≤20분 + 푸시 뒤 확인 ≤25분
+                                 # + 전 세계 격자(2026-10-10) 받기·만들기 ≈ 5~10분 · 푸시·검사(raw 캐시 기다림 ≤ 7분)
     permissions:
       contents: write
       actions: read              # update-wave 가 실행 중인지 읽는다(커밋 단계)
@@ -65,6 +73,29 @@ jobs:
             *)          MSG="전국 조류(조석 성분) 격자 갱신";;
           esac
           bash scripts/data_commit_push.sh "$MSG ($(date -u +%Y-%m-%dT%H:%MZ))" data/tidal
+      # (2026-10-10 조팀장 요청: 전 세계 조류 · 윈디처럼 부드럽게) 전 세계 격자 — korea/east_asia 를 올린 뒤라 여기서 실패해도 그쪽은 영향 없음.
+      #   continue-on-error: 실패는 경고만(공개된 이전 것 유지). 묵음(2일 이상·없음·예보 끝)만 맨 마지막 단계에서 실패(메일).
+      - name: 전 세계 조류 격자 만들기 (L0 1° + L1 0.25° 타일)
+        id: gbuild
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.CMEMS_USERNAME }}
+          COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.CMEMS_PASSWORD }}
+        run: python3 scripts/build_tidal_global.py build --out "$RUNNER_TEMP/tidal_global"
+      - name: 전 세계 조류 올리기 (가지 tidal-tiles 만 강제 푸시 — main 아님)
+        id: gpublish
+        if: ${{ !cancelled() && steps.gbuild.outputs.global_build == 'ok' }}
+        continue-on-error: true
+        timeout-minutes: 20
+        run: python3 scripts/build_tidal_global.py publish --out "$RUNNER_TEMP/tidal_global"
+      - name: 전 세계 조류 공개 상태 확인
+        id: glive
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python3 scripts/build_tidal_global.py check-live
       - name: 옛 예보까지 끝남 알림
         if: steps.build.outputs.publish == 'stale'
         run: |
@@ -76,4 +107,12 @@ jobs:
         if: ${{ !cancelled() && steps.build.outputs.wide == 'stale' }}
         run: |
           echo "::error::넓은 조류 격자(east_asia_tidal.json)를 이틀 넘게 못 만들었다(또는 없음·예보 끝남) — 앱 조류 색이 전국 화면에서 다시 사각 상자로 끊겨 보인다. data/tidal/meta.json 의 wide.last_attempt 를 볼 것."
+          exit 1
+      # (2026-10-10 조팀장 요청: 전 세계 조류 · 윈디처럼 부드럽게) 전 세계 격자 묵음 — 맨 마지막(이 단계가 실패해도 다른 단계는 이미 끝남)
+      - name: 전 세계 격자 묵음 알림
+        if: ${{ !cancelled() && steps.glive.outputs.global_state == 'stale' }}
+        env:
+          REASON: ${{ steps.glive.outputs.global_reason }}
+        run: |
+          echo "::error::전 세계 조류 격자(가지 tidal-tiles)를 이틀 넘게 못 바꿨다(또는 없음·예보 끝남) — 앱 줌아웃·해외 바다 조류가 비거나 옛것으로 보인다. $REASON (전 세계 만들기·올리기 단계 로그를 볼 것)"
           exit 1
