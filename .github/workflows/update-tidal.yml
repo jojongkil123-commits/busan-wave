@@ -1,0 +1,63 @@
+# 전국 조류(조석 성분만) 격자 — 하루 1번 (2026-10-09 조팀장 요청: 윈디와 같은 조류, 전국)
+# 왜: 앱 지도 '조류' 색·입자를 윈디 '조류'(CMEMS 조석)처럼 전국으로 → data/tidal/korea_tidal.json (+ meta.json).
+#     앱은 키 없이 Pages 에서 받는다.
+# 출처 (2026-10-09 검토 반영 — scripts/build_tidal.py 머리 참고, TIDAL_SOURCE 기본 auto):
+#   ① CMEMS SMOC 원파일의 utide·vtide(조석 유속)를 그대로 — 윈디와 같은 변수. 공개 저장소(키 없음)에서 한반도 조각만 HTTP Range 로
+#      ≈180 MB, 실행 ≈1~2분, Open-Meteo 호출 0. numpy·h5py·requests 가 필요해 아래에서 설치한다.
+#   ② ①이 실패하면(원파일 못 찾음·꼴 바뀜·설치 실패) Open-Meteo 합성 − Godin 저역통과(처음 방식, 시각 30분 보정 포함)로 대신 만든다.
+#      바다 칸 4,955점 = 4,955호출(무료 하루 10,000·시 5,000·분 600 — 스크립트가 스스로 늦춤), 시 상한 4,500 때문에 한 번 쉬어 ≈62분.
+#      sea_mask.json 은 이 대체 경로용(없으면 7,081점을 묻고 새로 배운다).
+# 시각: 00:40 KST. t0 = 실행일(KST) 00:00 이라 KST 자정 직후에 돌아야 96시간 창이 '오늘'부터 잡힌다. 이 저장소의 스케줄은 실제로
+#   2~6시간 늦게 돈다(update-roms.yml 머리 참고). CMEMS 발표는 하루 1번 ≈08:15Z(17:15 KST)라 00:40 KST 엔 전날 발표분(예보 약 10일)을 쓴다.
+#   update-wave(04:20 KST 등)와 겹쳐도 커밋 단계(data_commit_push.sh)가 기다렸다 올리고, 강제 푸시에 지워졌으면 다시 올린다.
+# 실패(①·② 둘 다 — 받기 중단·바다 칸 5% 넘게 빠짐·격자 가정 깨짐)면 korea_tidal.json 은 그대로 두고 meta.json(last_attempt)만 올린다.
+#   남은 옛 파일의 예보까지 끝났으면(stale) 마지막 단계를 실패로 끝내 메일이 가게 한다.
+# 커밋은 data/tidal 만, 강제 푸시 없이. 메시지를 'auto:' 로 시작하지 않는다(update-wave 는 마지막 커밋이 'auto:' 일 때만 amend 한다).
+name: update-tidal
+on:
+  schedule:
+    - cron: "40 15 * * *"   # 00:40 KST (실제 시작은 보통 2~6시간 뒤)
+  workflow_dispatch:
+concurrency:
+  group: tidal
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150         # ① CMEMS(공식 도구) ≈1분 · ② 대체 경로 받기 ≤90분(보통 ≈62분) + update-wave 기다림 ≤20분 + 푸시 뒤 확인 ≤25분
+    permissions:
+      contents: write
+      actions: read              # update-wave 가 실행 중인지 읽는다(커밋 단계)
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: CMEMS 공식 도구 설치 (실패해도 계속 — 빌드가 Open-Meteo 대체 경로로 간다)
+        continue-on-error: true
+        run: python3 -m pip install --quiet "numpy>=1.26" "h5py>=3.10" "requests>=2.31" "copernicusmarine>=2.5"
+      - name: 전국 조류(조석 성분) 격자 생성
+        id: build
+        env:
+          # (2026-10-09) 조팀장 코페르니쿠스 마린 무료 계정 — 공식 도구가 이 환경변수로 로그인한다
+          COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.CMEMS_USERNAME }}
+          COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.CMEMS_PASSWORD }}
+        run: python3 scripts/build_tidal.py
+      - name: 커밋 & 푸시 (update-wave 와 엇갈리지 않게)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH: ${{ steps.build.outputs.publish }}
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          case "$PUBLISH" in
+            keep|stale) MSG="전국 조류 갱신 실패 기록 — 이전 격자 유지 (meta.json)";;
+            unchanged)  MSG="전국 조류 meta 갱신 (격자 같음)";;
+            *)          MSG="전국 조류(조석 성분) 격자 갱신";;
+          esac
+          bash scripts/data_commit_push.sh "$MSG ($(date -u +%Y-%m-%dT%H:%MZ))" data/tidal
+      - name: 옛 예보까지 끝남 알림
+        if: steps.build.outputs.publish == 'stale'
+        run: |
+          echo "::error::전국 조류 격자를 새로 못 만들었고 남은 파일의 예보도 이미 끝났다 — 앱 조류 색이 비어 보인다. data/tidal/meta.json 의 last_attempt 를 볼 것."
+          exit 1

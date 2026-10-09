@@ -1,0 +1,803 @@
+{
+ "src": "cmems-smoc-tide",
+ "source_path": "cmems",
+ "source": "CMEMS SMOC(GLOBAL_ANALYSISFORECAST_PHY_001_024, merged-uv 1시간)의 utide·vtide(조석 유속) 그대로 — 윈디 '조류(Tidal currents)'와 같은 변수. 공식 도구(copernicusmarine, 로그인)로 받아 그 시각 표기 그대로",
+ "license": "E.U. Copernicus Marine Service Information — 무료·상업 사용 가능, 출처 표시 필수('Generated using E.U. Copernicus Marine Service Information'). 조팀장 무료 계정(2026-10-09 가입)으로 로그인해 받는다(비밀값 CMEMS_USERNAME/CMEMS_PASSWORD)",
+ "attribution": "Copernicus Marine Service (SMOC)",
+ "cmems": {
+  "via": "copernicusmarine 2.5.0 open_dataset (ARCO, 로그인)",
+  "dataset_id": "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i",
+  "source_times": [
+   "2026-10-08T15:00+00:00",
+   "2026-10-12T14:00+00:00"
+  ],
+  "time_label": "공식 도구 표기 그대로(HH:00) — 원파일 HH:30 값과 같은 값. KHOA 대조로 이쪽이 더 맞아 보간하지 않음",
+  "total_s": 16.8,
+  "sea_hours_missing": 0
+ },
+ "validation": {
+  "stations_total": 29,
+  "stations_used": 29,
+  "rule": "KHOA 유속 ≥ 20 cm/s 인 같은 시각(1시간 간격), 가장 가까운 바다 칸 15 km 안 — raw·tidal 같은 시각 집합",
+  "raw_total": {
+   "n": 0
+  },
+  "tidal": {
+   "n": 1375,
+   "agree45_pct": 71.1,
+   "opposite135_pct": 4.3,
+   "dir_diff_med": 21,
+   "speed_ratio_med": 0.57
+  },
+  "tidal_lag_score": {
+   "-6": -0.789,
+   "-5": -0.658,
+   "-4": -0.344,
+   "-3": 0.113,
+   "-2": 0.532,
+   "-1": 0.753,
+   "0": 0.798,
+   "1": 0.7,
+   "2": 0.416,
+   "3": -0.023,
+   "4": -0.461,
+   "5": -0.721,
+   "6": -0.793
+  },
+  "tidal_best_lag_h": 0,
+  "stations": [
+   {
+    "code": "08GA01",
+    "name": "감천항입구",
+    "cell": [
+     35.0,
+     129.0
+    ],
+    "dist_km": 5.5,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 37,
+     "agree45_pct": 40.5,
+     "opposite135_pct": 10.8,
+     "dir_diff_med": 46,
+     "speed_ratio_med": 1.12
+    }
+   },
+   {
+    "code": "10GD03",
+    "name": "가덕수도",
+    "cell": [
+     35.0,
+     128.75
+    ],
+    "dist_km": 4.3,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 47,
+     "agree45_pct": 95.7,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 14,
+     "speed_ratio_med": 0.46
+    }
+   },
+   {
+    "code": "16LTC09",
+    "name": "통영해만",
+    "cell": [
+     34.75,
+     128.4167
+    ],
+    "dist_km": 5.5,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 2,
+     "agree45_pct": 50.0,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 111,
+     "speed_ratio_med": 0.3
+    }
+   },
+   {
+    "code": "16LTC10",
+    "name": "비진도남측",
+    "cell": [
+     34.6667,
+     128.5
+    ],
+    "dist_km": 1.3,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 71,
+     "agree45_pct": 84.5,
+     "opposite135_pct": 1.4,
+     "dir_diff_med": 16,
+     "speed_ratio_med": 0.62
+    }
+   },
+   {
+    "code": "16LTC11",
+    "name": "부도수도",
+    "cell": [
+     35.0833,
+     128.6667
+    ],
+    "dist_km": 3.4,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 0
+    }
+   },
+   {
+    "code": "16LTC12",
+    "name": "낙동포",
+    "cell": [
+     35.0,
+     128.9167
+    ],
+    "dist_km": 2.0,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 58,
+     "agree45_pct": 94.8,
+     "opposite135_pct": 1.7,
+     "dir_diff_med": 6,
+     "speed_ratio_med": 0.7
+    }
+   },
+   {
+    "code": "16LTC13",
+    "name": "부산항입구",
+    "cell": [
+     35.0833,
+     129.0833
+    ],
+    "dist_km": 3.1,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 60,
+     "agree45_pct": 100.0,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 10,
+     "speed_ratio_med": 1.29
+    }
+   },
+   {
+    "code": "16LTC14",
+    "name": "울산신항",
+    "cell": [
+     35.4167,
+     129.4167
+    ],
+    "dist_km": 1.6,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 62,
+     "agree45_pct": 98.4,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 15,
+     "speed_ratio_med": 1.02
+    }
+   },
+   {
+    "code": "16MTC16",
+    "name": "지심도서측",
+    "cell": [
+     34.8333,
+     128.75
+    ],
+    "dist_km": 2.7,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 34,
+     "agree45_pct": 38.2,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 46,
+     "speed_ratio_med": 0.77
+    }
+   },
+   {
+    "code": "18LTC09",
+    "name": "사량도동측",
+    "cell": [
+     34.8333,
+     128.3333
+    ],
+    "dist_km": 3.6,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 60,
+     "agree45_pct": 100.0,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 10,
+     "speed_ratio_med": 0.63
+    }
+   },
+   {
+    "code": "18LTC10",
+    "name": "가조도수도",
+    "cell": [
+     35.0,
+     128.5833
+    ],
+    "dist_km": 4.1,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 0
+    }
+   },
+   {
+    "code": "18LTC11",
+    "name": "진해만(통영항로)",
+    "cell": [
+     35.0833,
+     128.6667
+    ],
+    "dist_km": 4.4,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 70,
+     "agree45_pct": 100.0,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 14,
+     "speed_ratio_med": 0.54
+    }
+   },
+   {
+    "code": "18LTC12",
+    "name": "거제도동측",
+    "cell": [
+     34.9167,
+     128.75
+    ],
+    "dist_km": 3.9,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 23,
+     "agree45_pct": 17.4,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 69,
+     "speed_ratio_med": 0.25
+    }
+   },
+   {
+    "code": "18LTC13",
+    "name": "해운대",
+    "cell": [
+     35.1667,
+     129.1667
+    ],
+    "dist_km": 3.7,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 65,
+     "agree45_pct": 98.5,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 4,
+     "speed_ratio_med": 0.78
+    }
+   },
+   {
+    "code": "18LTC14",
+    "name": "대왕암남측",
+    "cell": [
+     35.5,
+     129.5
+    ],
+    "dist_km": 5.3,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 36,
+     "agree45_pct": 80.6,
+     "opposite135_pct": 19.4,
+     "dir_diff_med": 4,
+     "speed_ratio_med": 0.65
+    }
+   },
+   {
+    "code": "19LTC13",
+    "name": "대병대도동측",
+    "cell": [
+     34.6667,
+     128.6667
+    ],
+    "dist_km": 4.2,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 41,
+     "agree45_pct": 100.0,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 8,
+     "speed_ratio_med": 0.87
+    }
+   },
+   {
+    "code": "19LTC14",
+    "name": "광안리",
+    "cell": [
+     35.1667,
+     129.1667
+    ],
+    "dist_km": 4.9,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 14,
+     "agree45_pct": 57.1,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 45,
+     "speed_ratio_med": 1.59
+    }
+   },
+   {
+    "code": "21LTC01",
+    "name": "태종대남측",
+    "cell": [
+     35.0833,
+     129.0833
+    ],
+    "dist_km": 4.5,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 88,
+     "agree45_pct": 86.4,
+     "opposite135_pct": 3.4,
+     "dir_diff_med": 29,
+     "speed_ratio_med": 0.55
+    }
+   },
+   {
+    "code": "21LTC02",
+    "name": "북형제도남측",
+    "cell": [
+     34.9167,
+     129.0
+    ],
+    "dist_km": 3.7,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 70,
+     "agree45_pct": 92.9,
+     "opposite135_pct": 7.1,
+     "dir_diff_med": 12,
+     "speed_ratio_med": 0.59
+    }
+   },
+   {
+    "code": "21LTC03",
+    "name": "가덕도남서측",
+    "cell": [
+     35.0,
+     128.75
+    ],
+    "dist_km": 3.0,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 56,
+     "agree45_pct": 76.8,
+     "opposite135_pct": 10.7,
+     "dir_diff_med": 16,
+     "speed_ratio_med": 0.23
+    }
+   },
+   {
+    "code": "21LTC04",
+    "name": "부산항신항",
+    "cell": [
+     35.0833,
+     128.75
+    ],
+    "dist_km": 3.5,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 0
+    }
+   },
+   {
+    "code": "21LTC05",
+    "name": "저도서측",
+    "cell": [
+     35.0,
+     128.75
+    ],
+    "dist_km": 2.5,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 70,
+     "agree45_pct": 72.9,
+     "opposite135_pct": 5.7,
+     "dir_diff_med": 34,
+     "speed_ratio_med": 0.3
+    }
+   },
+   {
+    "code": "21LTC06",
+    "name": "내도동측",
+    "cell": [
+     34.75,
+     128.75
+    ],
+    "dist_km": 4.3,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 31,
+     "agree45_pct": 29.0,
+     "opposite135_pct": 12.9,
+     "dir_diff_med": 84,
+     "speed_ratio_med": 0.73
+    }
+   },
+   {
+    "code": "21LTC07",
+    "name": "칠천도북서측",
+    "cell": [
+     35.0,
+     128.5833
+    ],
+    "dist_km": 2.1,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 54,
+     "agree45_pct": 100.0,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 16,
+     "speed_ratio_med": 0.37
+    }
+   },
+   {
+    "code": "21LTC08",
+    "name": "장사도북측",
+    "cell": [
+     34.75,
+     128.5833
+    ],
+    "dist_km": 3.1,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 61,
+     "agree45_pct": 8.2,
+     "opposite135_pct": 1.6,
+     "dir_diff_med": 88,
+     "speed_ratio_med": 0.72
+    }
+   },
+   {
+    "code": "21LTC09",
+    "name": "용초도북측",
+    "cell": [
+     34.75,
+     128.4167
+    ],
+    "dist_km": 6.8,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 86,
+     "agree45_pct": 22.1,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 62,
+     "speed_ratio_med": 0.35
+    }
+   },
+   {
+    "code": "21LTC10",
+    "name": "견내량해협",
+    "cell": [
+     34.9167,
+     128.5
+    ],
+    "dist_km": 5.0,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 83,
+     "agree45_pct": 33.7,
+     "opposite135_pct": 13.3,
+     "dir_diff_med": 58,
+     "speed_ratio_med": 0.04
+    }
+   },
+   {
+    "code": "21LTC11",
+    "name": "오곡도북측",
+    "cell": [
+     34.75,
+     128.4167
+    ],
+    "dist_km": 1.6,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 54,
+     "agree45_pct": 5.6,
+     "opposite135_pct": 20.4,
+     "dir_diff_med": 88,
+     "speed_ratio_med": 0.85
+    }
+   },
+   {
+    "code": "21LTC12",
+    "name": "곤리도남측",
+    "cell": [
+     34.75,
+     128.3333
+    ],
+    "dist_km": 3.1,
+    "raw": {
+     "n": 0
+    },
+    "tidal": {
+     "n": 42,
+     "agree45_pct": 92.9,
+     "opposite135_pct": 2.4,
+     "dir_diff_med": 28,
+     "speed_ratio_med": 0.75
+    }
+   }
+  ]
+ },
+ "spectral_check": [
+  {
+   "name": "서해 중부(태안 앞)",
+   "cell": [
+    36.5,
+    125.75
+   ],
+   "hours": 96,
+   "tidal_u_bands": {
+    "semidiurnal": 0.993,
+    "diurnal": 0.0,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "tidal_v_bands": {
+    "semidiurnal": 0.993,
+    "diurnal": 0.001,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "zero_cross_period_h": 12.31,
+   "zero_crossings": 15,
+   "tidal_speed_p50_p95_cms": [
+    57,
+    76
+   ]
+  },
+  {
+   "name": "서해 남부(진도 앞)",
+   "cell": [
+    34.5,
+    125.75
+   ],
+   "hours": 96,
+   "tidal_u_bands": {
+    "semidiurnal": 0.986,
+    "diurnal": 0.002,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "tidal_v_bands": {
+    "semidiurnal": 0.994,
+    "diurnal": 0.001,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "zero_cross_period_h": 12.26,
+   "zero_crossings": 16,
+   "tidal_speed_p50_p95_cms": [
+    83,
+    124
+   ]
+  },
+  {
+   "name": "제주해협",
+   "cell": [
+    33.75,
+    126.75
+   ],
+   "hours": 96,
+   "tidal_u_bands": {
+    "semidiurnal": 0.99,
+    "diurnal": 0.003,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "tidal_v_bands": {
+    "semidiurnal": 0.988,
+    "diurnal": 0.0,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "zero_cross_period_h": 12.3,
+   "zero_crossings": 15,
+   "tidal_speed_p50_p95_cms": [
+    46,
+    69
+   ]
+  },
+  {
+   "name": "남해 동부(거제 앞)",
+   "cell": [
+    34.5,
+    128.75
+   ],
+   "hours": 96,
+   "tidal_u_bands": {
+    "semidiurnal": 0.96,
+    "diurnal": 0.017,
+    "low_gt36h": 0.001,
+    "dominant_period_h": 12.0
+   },
+   "tidal_v_bands": {
+    "semidiurnal": 0.944,
+    "diurnal": 0.025,
+    "low_gt36h": 0.001,
+    "dominant_period_h": 12.0
+   },
+   "zero_cross_period_h": 12.13,
+   "zero_crossings": 16,
+   "tidal_speed_p50_p95_cms": [
+    25,
+    41
+   ]
+  },
+  {
+   "name": "경기만 바깥",
+   "cell": [
+    37.25,
+    126.0
+   ],
+   "hours": 96,
+   "tidal_u_bands": {
+    "semidiurnal": 0.991,
+    "diurnal": 0.0,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "tidal_v_bands": {
+    "semidiurnal": 0.992,
+    "diurnal": 0.001,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "zero_cross_period_h": 12.29,
+   "zero_crossings": 15,
+   "tidal_speed_p50_p95_cms": [
+    106,
+    148
+   ]
+  },
+  {
+   "name": "동해 중부",
+   "cell": [
+    37.5,
+    130.0
+   ],
+   "hours": 96,
+   "tidal_u_bands": {
+    "semidiurnal": 0.976,
+    "diurnal": 0.01,
+    "low_gt36h": 0.001,
+    "dominant_period_h": 12.0
+   },
+   "tidal_v_bands": {
+    "semidiurnal": 0.98,
+    "diurnal": 0.008,
+    "low_gt36h": 0.0,
+    "dominant_period_h": 12.0
+   },
+   "zero_cross_period_h": 12.18,
+   "zero_crossings": 16,
+   "tidal_speed_p50_p95_cms": [
+    1,
+    2
+   ]
+  }
+ ],
+ "region_speed": {
+  "서해": {
+   "cells_hours": 126144,
+   "p50_cms": 47.0,
+   "p95_cms": 107.8
+  },
+  "남해": {
+   "cells_hours": 23904,
+   "p50_cms": 22.1,
+   "p95_cms": 70.7
+  },
+  "부산·대한해협": {
+   "cells_hours": 17952,
+   "p50_cms": 22.3,
+   "p95_cms": 44.0
+  },
+  "동해": {
+   "cells_hours": 105792,
+   "p50_cms": 0.9,
+   "p95_cms": 4.0
+  }
+ },
+ "points": {
+  "sea": 4987,
+  "land": 2094,
+  "empty_sea_hours": 0,
+  "mask": "CMEMS 원파일 육지(채움값)"
+ },
+ "generated": "2026-10-09T17:07:18+09:00",
+ "changed": "2026-10-09T17:07:18+09:00",
+ "t0": 1791471600,
+ "n": 96,
+ "step": 3600,
+ "forecast_start": "2026-10-09T00:00+09:00",
+ "forecast_end": "2026-10-12T23:00+09:00",
+ "grid": {
+  "minLat": 32.75,
+  "maxLat": 38.75,
+  "minLng": 124.0,
+  "maxLng": 132.0,
+  "rows": 73,
+  "cols": 97,
+  "dDeg": 0.083333,
+  "order": "row-major, row0 = maxLat(북), col0 = minLng(서), 점 안은 시간순 → spd[(r*cols+c)*n+k] (앱 TidalFieldService·sampleFieldRaw 와 같음)"
+ },
+ "file": {
+  "path": "data/tidal/korea_tidal.json",
+  "bytes": 4222422,
+  "gzip9_bytes": 840831
+ },
+ "last_attempt": {
+  "at": "2026-10-09T17:07:18+09:00",
+  "status": "published",
+  "source_path": "cmems"
+ }
+}
