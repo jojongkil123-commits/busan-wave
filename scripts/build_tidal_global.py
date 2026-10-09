@@ -23,7 +23,11 @@ build_tidal_global.py — 전 세계 조류(조석 성분 utide·vtide) 2단계 
 만드는 것 — 가지 'tidal-tiles'(main 과 이어지지 않는 부모 없는 커밋 하나, 실행마다 강제 푸시 — main 에는 안 넣는다)에
   index.json + <run>/L0.bin + <run>/L1/<key>.bin. 앱은 raw.githubusercontent.com 에서 받는다(키 없음·CORS *·ETag/304·Range·max-age 300).
   이번 run + 바로 전 run 폴더만 둔다(어제 index 를 5분 캐시로 막 받은 앱도 타일을 받게). 실행마다 새로 생기는 객체 ≈ 28–31 MB
-  (항목이 이미 DEFLATE 라 git 이 더 못 누른다) — 버려진 옛 커밋은 GitHub 가 치운다. (GitHub Release 자산도 검토했으나 로컬에서 새 공개
+  (항목이 이미 DEFLATE 라 git 이 더 못 누른다). 같은 날 다시 돌려 자료가 같으면 같은 블롭이라 거의 안 는다.
+  ⚠️ 버려진 옛 커밋을 GitHub 가 언제 치우는지는 **보장이 없다**(2026-10-10 검토: 9분 뒤 바뀐 첫 커밋 baf37b62 가 아직 sha 주소로 200).
+     자료는 매일 바뀌니 안 치워지면 실행마다 ≈ 31 MB(1년 ≈ 11 GB)가 이미 ≈ 6.4 GB 인 저장소에 쌓인다 → check-live 가 매일 저장소 크기(API .size)를
+     남기고 기준(REPO_SIZE_BASE_KB)보다 REPO_SIZE_WARN_MB 넘게 늘면 경고한다. 1~2주 보고 줄곧 늘면 타일을 지웠다 다시 만들 수 있는
+     데이터 전용 저장소(예: busan-wave-tidal)로 옮긴다 — 앱은 index 주소 하나만 바꾸면 된다. (GitHub Release 자산도 검토했으나 로컬에서 새 공개
   Release 를 만드는 것이 막혀 이쪽으로 — 조각 수백 개를 자산으로 올리면 API 한도에도 걸린다.)
   L0 overview  1° 전 지구 171×361 (행0 = 90N … −80N, 열0 = −180E … 180E — 마지막 열은 첫 열 복사라 경도 끝에서 보간이 이어진다)
                1° 점 = 원격자 12×12칸(그 점 ±0.5°, 위도·경도 각각 −6…+5칸) 중 바다 칸 평균 — 바다 칸이 하나라도 있으면 바다.
@@ -89,6 +93,10 @@ MAGIC = b"TGT1"
 HEAD_FMT = "<4sBBHHHIiiiHH"    # 32바이트 — FORMAT_DOC 참고
 HEAD_LEN = struct.calcsize(HEAD_FMT)
 STALE_DAYS = 2                 # 공개 index 가 이 날수 이상 묵으면 stale(이틀 연속 못 올림) — 넓은 격자와 같은 규칙
+# (2026-10-10 검토 반영) 저장소 크기 감시 — 기준 = 2026-10-10 06:30 KST `gh api repos/... --jq .size`(전 세계 조류 실행 3번 뒤).
+#   GitHub 의 .size 는 실시간이 아니라 몇 시간~며칠 늦게 다시 잰 값이다. main 의 날마다 자료 커밋도 같이 늘리므로 경고는 '들여다볼 때'라는 뜻.
+REPO_SIZE_BASE_KB = 6_438_555
+REPO_SIZE_WARN_MB = 500
 
 # 원격자(1/12°) — 2026-10-10 open_dataset 확인: 위도 −80…90 2041점, 경도 −180…179.9167 4320점, 남→북
 NAT_ROWS, NAT_COLS, NAT_D = 2041, 4320, 1.0 / 12.0
@@ -716,8 +724,40 @@ def fetch_index_live():
     return json.loads(body)
 
 
+def repo_size_check():
+    """저장소 크기(GitHub API .size, KB)를 남긴다 — 가지 tidal-tiles 를 강제 푸시하며 버린 옛 커밋을 GitHub 가 실제로 치우는지 이 숫자로 본다.
+    기준보다 REPO_SIZE_WARN_MB 넘게 늘었으면 경고(워크플로는 실패시키지 않음). 못 읽으면 건너뛴다."""
+    hdr = dict(UA)
+    tok = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if tok:
+        hdr["Authorization"] = f"Bearer {tok}"
+    try:
+        req = urllib.request.Request(f"https://api.github.com/repos/{REPO}", headers=hdr)
+        with urllib.request.urlopen(req, timeout=30) as r:
+            size_kb = int(json.loads(r.read())["size"])
+    except Exception as e:  # noqa: BLE001
+        log(f"  저장소 크기 못 읽음({type(e).__name__}: {str(e)[:120]}) — 건너뜀")
+        return None
+    grow_mb = (size_kb - REPO_SIZE_BASE_KB) / 1024
+    msg = (f"저장소 크기 {size_kb / 1048576:.2f} GB (API .size {size_kb:,} KB) — 기준 {REPO_SIZE_BASE_KB / 1048576:.2f} GB(2026-10-10) 대비 {grow_mb:+,.0f} MB")
+    log(("⚠️ " if grow_mb > REPO_SIZE_WARN_MB else "📦 ") + msg)
+    gh_output(repo_size_kb=size_kb, repo_grow_mb=round(grow_mb))
+    summ = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summ:
+        try:
+            with open(summ, "a", encoding="utf-8") as f:
+                f.write(f"- {msg}\n")
+        except OSError:
+            pass
+    if grow_mb > REPO_SIZE_WARN_MB:
+        gh_annot("warning", msg + f" — {REPO_SIZE_WARN_MB} MB 넘게 늘었다. 가지 {BRANCH} 의 버린 커밋이 안 치워지는 듯하면 "
+                 "타일을 지웠다 다시 만들 수 있는 데이터 전용 저장소로 옮길 때(build_tidal_global.py 머리 참고)")
+    return size_kb
+
+
 def check_live():
     """공개 index 가 묵었나 — stale(2일 이상·없음·예보 끝남)이면 GITHUB_OUTPUT global_state=stale (워크플로가 실패로 끝내 메일)"""
+    repo_size_check()
     now = datetime.now(KST)
     try:
         live = fetch_index_live()

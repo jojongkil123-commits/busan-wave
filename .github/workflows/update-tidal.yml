@@ -90,11 +90,13 @@ jobs:
         continue-on-error: true
         timeout-minutes: 20
         run: python3 scripts/build_tidal_global.py publish --out "$RUNNER_TEMP/tidal_global"
-      - name: 전 세계 조류 공개 상태 확인
+      - name: 전 세계 조류 공개 상태 확인 (+ 저장소 크기 기록 — 2026-10-10 검토 반영)
         id: glive
         if: ${{ !cancelled() }}
         continue-on-error: true
         timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python3 scripts/build_tidal_global.py check-live
       - name: 옛 예보까지 끝남 알림
         if: steps.build.outputs.publish == 'stale'
