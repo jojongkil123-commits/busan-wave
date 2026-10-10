@@ -131,6 +131,9 @@ WIDE_STALE_DAYS = 2            # 남은 넓은 파일이 이 날수 이상 묵�
 OM_SHIFT = 1.0 / 24.0          # 계약점 P 는 Open-Meteo 칸 'P + 1/24' 로 받는다(위 '격자 위치' 참고)
 N_OUT = 96                     # 출력 시간 수(1시간 간격)
 SRC = "cmems-smoc-tide"
+# (2026-10-11 조팀장 결정: 윈디와 같은 시각 +1시간) 화면 시각 = 윈디 표기(출력 t = ARCO 라벨 t−1시) — tidal_cmems.SHOW_SHIFT 와 같은 값. 대체 경로(Open-Meteo)도 한 시간 앞 값을 쓴다
+#   (대체 경로는 실제 시각 보정을 하므로 윈디와 30분 차이 — 드물게만 쓰인다). KHOA 대조 점수는 lag0 이 내려가고 최적 시차가 −1h 가 된다(정상).
+SHOW_SHIFT = int(os.environ.get("TIDAL_SHOW_SHIFT", "3600"))
 
 SOURCE = os.environ.get("TIDAL_SOURCE", "auto").lower()       # auto | cmems | openmeteo (2026-10-09 조팀장 요청: 윈디와 같은 조류, 전국)
 FILTER = os.environ.get("TIDAL_FILTER", "godin").lower()
@@ -1081,7 +1084,7 @@ def run_openmeteo(now, prev_meta, cmems_fail=None):
         u, v = series[i]
         bad = 0
         for k in range(n):
-            j = (t0 + 3600 * k - tdata0) // 3600          # 라벨 t 의 자리(그 값은 실제 t+30분) — tidal_hh00 이 보정
+            j = (t0 - SHOW_SHIFT + 3600 * k - tdata0) // 3600   # 라벨 t 의 자리(그 값은 실제 t+30분) — tidal_hh00 이 보정 · (2026-10-11 조팀장 결정: 윈디와 같은 시각 +1시간) 한 시간 앞 값
             s = tidal_hh00(u, v, j)
             if s is None:
                 bad += 1
@@ -1109,7 +1112,7 @@ def run_openmeteo(now, prev_meta, cmems_fail=None):
     def raw_at(i, k):
         """합성(raw total) 유속 cm/s·가는 쪽 — 대조용, 없으면 (-1, -1). 조석 성분과 같은 HH:30 보정(라벨 j−1·j 평균)"""
         vs, ds = got.get(i, ([], []))
-        j = (t0 + 3600 * k - tdata0) // 3600
+        j = (t0 - SHOW_SHIFT + 3600 * k - tdata0) // 3600
         uu = vv = 0.0
         for jj in (j - 1, j):
             if not (0 <= jj < len(vs)) or vs[jj] is None or ds[jj] is None:

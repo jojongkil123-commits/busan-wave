@@ -76,6 +76,8 @@ UTC = timezone.utc
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TIDAL_DIR = os.environ.get("TIDAL_GLOBAL_COMPARE_DIR") or os.path.join(ROOT, "data", "tidal")   # korea/east_asia 대조용(로컬 시험은 다른 곳)
+# (2026-10-11 조팀장 결정: 윈디와 같은 시각 +1시간) 화면 시각 = 윈디 표기 — 자세한 까닭은 tidal_cmems.py SHOW_SHIFT. 되돌리려면 TIDAL_SHOW_SHIFT=0.
+SHOW_SHIFT = int(os.environ.get("TIDAL_SHOW_SHIFT", "3600"))
 DATASET_ID = "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"
 SRC = "cmems-smoc-tide"
 REPO = os.environ.get("GITHUB_REPOSITORY", "jojongkil123-commits/busan-wave")
@@ -233,8 +235,10 @@ def fetch_and_reduce(t0, n):
         raise RuntimeError("코페르니쿠스 계정 환경변수 없음(CMEMS_USERNAME/CMEMS_PASSWORD 비밀값)")
     t_start = time.time()
     rx0 = net_rx_bytes()
-    start = datetime.fromtimestamp(t0, UTC)
-    end = datetime.fromtimestamp(t0 + 3600 * (n - 1), UTC)
+    # (2026-10-11 조팀장 결정: 윈디와 같은 시각 +1시간) 출력 k = ARCO 라벨 (t0 − SHOW_SHIFT) + k시간 — tidal_cmems.SHOW_SHIFT 와 같은 값(한반도·동아시아와 시각이 맞아야 대조 관문 통과)
+    src0 = t0 - SHOW_SHIFT
+    start = datetime.fromtimestamp(src0, UTC)
+    end = datetime.fromtimestamp(src0 + 3600 * (n - 1), UTC)
     ds = copernicusmarine.open_dataset(
         dataset_id=DATASET_ID, variables=["utide", "vtide"],
         start_datetime=start.strftime("%Y-%m-%dT%H:%M:%S"), end_datetime=end.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -254,7 +258,7 @@ def fetch_and_reduce(t0, n):
         raise RuntimeError(f"dask 시각 덩어리가 1 이 아님({None if tchunk is None else max(tchunk)}) — 한 시각에 덩어리 통째를 받게 된다")
     times = ds["time"].values.astype("datetime64[s]").astype("int64").tolist()
     pos = {t: i for i, t in enumerate(times)}
-    want = [t0 + 3600 * k for k in range(n)]
+    want = [src0 + 3600 * k for k in range(n)]
     miss = [k for k, t in enumerate(want) if t not in pos]
     if miss:
         raise RuntimeError(f"시각 {n - len(miss)}/{n}개만 있음(첫 빈 시각 k={miss[0]}) — 예보가 아직 그만큼 안 나왔을 수 있음")

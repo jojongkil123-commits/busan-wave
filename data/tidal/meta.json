@@ -8,8 +8,8 @@
   "via": "copernicusmarine 2.5.0 open_dataset (ARCO, 로그인)",
   "dataset_id": "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i",
   "source_times": [
-   "2026-10-09T15:00+00:00",
-   "2026-10-13T14:00+00:00"
+   "2026-10-09T14:00+00:00",
+   "2026-10-13T13:00+00:00"
   ],
   "time_label": "공식 도구 표기 그대로(HH:00) — 원파일 HH:30 값과 같은 값. KHOA 대조로 이쪽이 더 맞아 보간하지 않음",
   "request_box": {
@@ -21,10 +21,10 @@
    "cols": 421
   },
   "chunks": "{'time': 1, 'elevation': 1, 'latitude': 512, 'longitude': 2048}",
-  "open_s": 6.3,
-  "load_s": 18.9,
+  "open_s": 11.0,
+  "load_s": 35.4,
   "array_mb": 132.2,
-  "total_s": 25.4,
+  "total_s": 46.7,
   "grid_check": {
    "lat": [
     39.5,
@@ -47,27 +47,27 @@
   },
   "tidal": {
    "n": 1370,
-   "agree45_pct": 70.5,
-   "opposite135_pct": 4.7,
-   "dir_diff_med": 22,
-   "speed_ratio_med": 0.56
+   "agree45_pct": 64.4,
+   "opposite135_pct": 9.3,
+   "dir_diff_med": 30,
+   "speed_ratio_med": 0.55
   },
   "tidal_lag_score": {
-   "-6": -0.765,
-   "-5": -0.634,
-   "-4": -0.325,
-   "-3": 0.116,
-   "-2": 0.517,
-   "-1": 0.741,
-   "0": 0.785,
-   "1": 0.691,
-   "2": 0.425,
-   "3": 0.009,
-   "4": -0.419,
-   "5": -0.688,
-   "6": -0.77
+   "-6": -0.637,
+   "-5": -0.322,
+   "-4": 0.126,
+   "-3": 0.524,
+   "-2": 0.742,
+   "-1": 0.785,
+   "0": 0.692,
+   "1": 0.425,
+   "2": -0.001,
+   "3": -0.429,
+   "4": -0.693,
+   "5": -0.772,
+   "6": -0.691
   },
-  "tidal_best_lag_h": 0,
+  "tidal_best_lag_h": -1,
   "stations": [
    {
     "code": "08GA01",
@@ -82,10 +82,10 @@
     },
     "tidal": {
      "n": 38,
-     "agree45_pct": 42.1,
-     "opposite135_pct": 7.9,
-     "dir_diff_med": 46,
-     "speed_ratio_med": 1.17
+     "agree45_pct": 26.3,
+     "opposite135_pct": 34.2,
+     "dir_diff_med": 56,
+     "speed_ratio_med": 0.95
     }
    },
    {
@@ -101,8 +101,8 @@
     },
     "tidal": {
      "n": 51,
-     "agree45_pct": 94.1,
-     "opposite135_pct": 2.0,
+     "agree45_pct": 100.0,
+     "opposite135_pct": 0.0,
      "dir_diff_med": 14,
      "speed_ratio_med": 0.44
     }
@@ -120,10 +120,10 @@
     },
     "tidal": {
      "n": 3,
-     "agree45_pct": 66.7,
+     "agree45_pct": 100.0,
      "opposite135_pct": 0.0,
-     "dir_diff_med": 30,
-     "speed_ratio_med": 0.29
+     "dir_diff_med": 39,
+     "speed_ratio_med": 0.85
     }
    },
    {
@@ -139,10 +139,10 @@
     },
     "tidal": {
      "n": 68,
-     "agree45_pct": 85.3,
-     "opposite135_pct": 1.5,
-     "dir_diff_med": 17,
-     "speed_ratio_med": 0.66
+     "agree45_pct": 88.2,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 15,
+     "speed_ratio_med": 0.62
     }
    },
    {
@@ -173,10 +173,10 @@
     },
     "tidal": {
      "n": 60,
-     "agree45_pct": 95.0,
-     "opposite135_pct": 1.7,
-     "dir_diff_med": 6,
-     "speed_ratio_med": 0.77
+     "agree45_pct": 96.7,
+     "opposite135_pct": 0.0,
+     "dir_diff_med": 4,
+     "speed_ratio_med": 0.7
     }
    },
    {
@@ -192,10 +192,10 @@
     },
     "tidal": {
      "n": 57,
-     "agree45_pct": 100.0,
-     "opposite135_pct": 0.0,
-     "dir_diff_med": 10,
-     "speed_ratio_med": 1.37
+     "agree45_pct": 84.2,
+     "opposite135_pct": 10.5,
+     "dir_diff_med": 11,
+     "speed_ratio_med": 1.03
     }
    },
    {
@@ -211,10 +211,10 @@
     },
     "tidal": {
      "n": 59,
-     "agree45_pct": 98.3,
-     "opposite135_pct": 0.0,
+     "agree45_pct": 93.2,
+     "opposite135_pct": 5.1,
      "dir_diff_med": 15,
-     "speed_ratio_med": 1.0
+     "speed_ratio_med": 0.81
     }
    },
    {
@@ -230,10 +230,10 @@
     },
     "tidal": {
      "n": 34,
-     "agree45_pct": 38.2,
+     "agree45_pct": 23.5,
      "opposite135_pct": 0.0,
-     "dir_diff_med": 46,
-     "speed_ratio_med": 0.77
+     "dir_diff_med": 48,
+     "speed_ratio_med": 0.81
     }
    },
    {
@@ -249,10 +249,10 @@
     },
     "tidal": {
      "n": 58,
-     "agree45_pct": 100.0,
+     "agree45_pct": 91.4,
      "opposite135_pct": 0.0,
-     "dir_diff_med": 9,
-     "speed_ratio_med": 0.65
+     "dir_diff_med": 17,
+     "speed_ratio_med": 0.66
     }
    },
    {
@@ -283,10 +283,10 @@
     },
     "tidal": {
      "n": 70,
-     "agree45_pct": 100.0,
+     "agree45_pct": 95.7,
      "opposite135_pct": 0.0,
-     "dir_diff_med": 13,
-     "speed_ratio_med": 0.54
+     "dir_diff_med": 14,
+     "speed_ratio_med": 0.51
     }
    },
    {
@@ -304,8 +304,8 @@
      "n": 22,
      "agree45_pct": 18.2,
      "opposite135_pct": 0.0,
-     "dir_diff_med": 69,
-     "speed_ratio_med": 0.27
+     "dir_diff_med": 74,
+     "speed_ratio_med": 0.33
     }
    },
    {
@@ -321,8 +321,8 @@
     },
     "tidal": {
      "n": 62,
-     "agree45_pct": 100.0,
-     "opposite135_pct": 0.0,
+     "agree45_pct": 95.2,
+     "opposite135_pct": 1.6,
      "dir_diff_med": 5,
      "speed_ratio_med": 0.76
     }
@@ -340,10 +340,10 @@
     },
     "tidal": {
      "n": 39,
-     "agree45_pct": 71.8,
-     "opposite135_pct": 23.1,
-     "dir_diff_med": 8,
-     "speed_ratio_med": 0.65
+     "agree45_pct": 41.0,
+     "opposite135_pct": 56.4,
+     "dir_diff_med": 150,
+     "speed_ratio_med": 0.55
     }
    },
    {
@@ -359,10 +359,10 @@
     },
     "tidal": {
      "n": 40,
-     "agree45_pct": 100.0,
-     "opposite135_pct": 0.0,
+     "agree45_pct": 92.5,
+     "opposite135_pct": 5.0,
      "dir_diff_med": 10,
-     "speed_ratio_med": 0.88
+     "speed_ratio_med": 0.8
     }
    },
    {
@@ -378,10 +378,10 @@
     },
     "tidal": {
      "n": 12,
-     "agree45_pct": 66.7,
+     "agree45_pct": 58.3,
      "opposite135_pct": 0.0,
-     "dir_diff_med": 28,
-     "speed_ratio_med": 1.59
+     "dir_diff_med": 36,
+     "speed_ratio_med": 1.43
     }
    },
    {
@@ -397,10 +397,10 @@
     },
     "tidal": {
      "n": 84,
-     "agree45_pct": 89.3,
-     "opposite135_pct": 1.2,
-     "dir_diff_med": 29,
-     "speed_ratio_med": 0.55
+     "agree45_pct": 76.2,
+     "opposite135_pct": 8.3,
+     "dir_diff_med": 34,
+     "speed_ratio_med": 0.63
     }
    },
    {
@@ -416,10 +416,10 @@
     },
     "tidal": {
      "n": 70,
-     "agree45_pct": 88.6,
-     "opposite135_pct": 10.0,
+     "agree45_pct": 90.0,
+     "opposite135_pct": 8.6,
      "dir_diff_med": 12,
-     "speed_ratio_med": 0.55
+     "speed_ratio_med": 0.5
     }
    },
    {
@@ -435,10 +435,10 @@
     },
     "tidal": {
      "n": 57,
-     "agree45_pct": 73.7,
-     "opposite135_pct": 15.8,
+     "agree45_pct": 61.4,
+     "opposite135_pct": 26.3,
      "dir_diff_med": 16,
-     "speed_ratio_med": 0.23
+     "speed_ratio_med": 0.29
     }
    },
    {
@@ -469,10 +469,10 @@
     },
     "tidal": {
      "n": 68,
-     "agree45_pct": 75.0,
-     "opposite135_pct": 4.4,
-     "dir_diff_med": 35,
-     "speed_ratio_med": 0.27
+     "agree45_pct": 58.8,
+     "opposite135_pct": 10.3,
+     "dir_diff_med": 41,
+     "speed_ratio_med": 0.26
     }
    },
    {
@@ -488,10 +488,10 @@
     },
     "tidal": {
      "n": 40,
-     "agree45_pct": 30.0,
-     "opposite135_pct": 15.0,
-     "dir_diff_med": 84,
-     "speed_ratio_med": 0.73
+     "agree45_pct": 10.0,
+     "opposite135_pct": 30.0,
+     "dir_diff_med": 114,
+     "speed_ratio_med": 0.77
     }
    },
    {
@@ -507,10 +507,10 @@
     },
     "tidal": {
      "n": 52,
-     "agree45_pct": 100.0,
+     "agree45_pct": 88.5,
      "opposite135_pct": 0.0,
-     "dir_diff_med": 16,
-     "speed_ratio_med": 0.38
+     "dir_diff_med": 22,
+     "speed_ratio_med": 0.32
     }
    },
    {
@@ -526,10 +526,10 @@
     },
     "tidal": {
      "n": 59,
-     "agree45_pct": 8.5,
-     "opposite135_pct": 3.4,
+     "agree45_pct": 10.2,
+     "opposite135_pct": 1.7,
      "dir_diff_med": 88,
-     "speed_ratio_med": 0.68
+     "speed_ratio_med": 0.87
     }
    },
    {
@@ -545,10 +545,10 @@
     },
     "tidal": {
      "n": 86,
-     "agree45_pct": 19.8,
+     "agree45_pct": 30.2,
      "opposite135_pct": 0.0,
-     "dir_diff_med": 62,
-     "speed_ratio_med": 0.35
+     "dir_diff_med": 60,
+     "speed_ratio_med": 0.33
     }
    },
    {
@@ -564,9 +564,9 @@
     },
     "tidal": {
      "n": 80,
-     "agree45_pct": 35.0,
-     "opposite135_pct": 12.5,
-     "dir_diff_med": 58,
+     "agree45_pct": 25.0,
+     "opposite135_pct": 31.2,
+     "dir_diff_med": 71,
      "speed_ratio_med": 0.04
     }
    },
@@ -583,10 +583,10 @@
     },
     "tidal": {
      "n": 56,
-     "agree45_pct": 7.1,
-     "opposite135_pct": 17.9,
-     "dir_diff_med": 88,
-     "speed_ratio_med": 0.83
+     "agree45_pct": 8.9,
+     "opposite135_pct": 12.5,
+     "dir_diff_med": 104,
+     "speed_ratio_med": 0.89
     }
    },
    {
@@ -602,10 +602,10 @@
     },
     "tidal": {
      "n": 45,
-     "agree45_pct": 86.7,
+     "agree45_pct": 82.2,
      "opposite135_pct": 2.2,
-     "dir_diff_med": 28,
-     "speed_ratio_med": 0.67
+     "dir_diff_med": 32,
+     "speed_ratio_med": 0.66
     }
    }
   ]
@@ -645,7 +645,7 @@
    ],
    "hours": 96,
    "tidal_u_bands": {
-    "semidiurnal": 0.971,
+    "semidiurnal": 0.972,
     "diurnal": 0.01,
     "low_gt36h": 0.0,
     "dominant_period_h": 12.0
@@ -656,10 +656,10 @@
     "low_gt36h": 0.0,
     "dominant_period_h": 12.0
    },
-   "zero_cross_period_h": 12.27,
-   "zero_crossings": 16,
+   "zero_cross_period_h": 12.32,
+   "zero_crossings": 15,
    "tidal_speed_p50_p95_cms": [
-    82,
+    86,
     124
    ]
   },
@@ -671,8 +671,8 @@
    ],
    "hours": 96,
    "tidal_u_bands": {
-    "semidiurnal": 0.978,
-    "diurnal": 0.011,
+    "semidiurnal": 0.979,
+    "diurnal": 0.01,
     "low_gt36h": 0.0,
     "dominant_period_h": 12.0
    },
@@ -697,14 +697,14 @@
    ],
    "hours": 96,
    "tidal_u_bands": {
-    "semidiurnal": 0.894,
-    "diurnal": 0.061,
+    "semidiurnal": 0.897,
+    "diurnal": 0.059,
     "low_gt36h": 0.0,
     "dominant_period_h": 12.0
    },
    "tidal_v_bands": {
-    "semidiurnal": 0.853,
-    "diurnal": 0.085,
+    "semidiurnal": 0.857,
+    "diurnal": 0.082,
     "low_gt36h": 0.001,
     "dominant_period_h": 12.0
    },
@@ -737,7 +737,7 @@
    "zero_cross_period_h": 12.28,
    "zero_crossings": 15,
    "tidal_speed_p50_p95_cms": [
-    106,
+    103,
     148
    ]
   },
@@ -749,14 +749,14 @@
    ],
    "hours": 96,
    "tidal_u_bands": {
-    "semidiurnal": 0.953,
+    "semidiurnal": 0.954,
     "diurnal": 0.023,
     "low_gt36h": 0.001,
     "dominant_period_h": 12.0
    },
    "tidal_v_bands": {
-    "semidiurnal": 0.946,
-    "diurnal": 0.03,
+    "semidiurnal": 0.948,
+    "diurnal": 0.028,
     "low_gt36h": 0.0,
     "dominant_period_h": 12.0
    },
@@ -771,18 +771,18 @@
  "region_speed": {
   "서해": {
    "cells_hours": 208128,
-   "p50_cms": 42.8,
-   "p95_cms": 102.1
+   "p50_cms": 43.2,
+   "p95_cms": 102.3
   },
   "남해": {
    "cells_hours": 23904,
    "p50_cms": 22.3,
-   "p95_cms": 70.2
+   "p95_cms": 70.3
   },
   "부산·대한해협": {
    "cells_hours": 17952,
    "p50_cms": 21.8,
-   "p95_cms": 45.7
+   "p95_cms": 45.8
   },
   "동해": {
    "cells_hours": 157920,
@@ -796,8 +796,8 @@
   "empty_sea_hours": 0,
   "mask": "CMEMS 원파일 육지(채움값)"
  },
- "generated": "2026-10-10T07:02:31+09:00",
- "changed": "2026-10-10T02:57:42+09:00",
+ "generated": "2026-10-10T23:29:35+09:00",
+ "changed": "2026-10-10T23:29:35+09:00",
  "t0": 1791558000,
  "n": 96,
  "step": 3600,
@@ -815,19 +815,19 @@
  },
  "file": {
   "path": "data/tidal/korea_tidal.json",
-  "bytes": 6241265,
-  "gzip9_bytes": 1314932
+  "bytes": 6264144,
+  "gzip9_bytes": 1328992
  },
  "last_attempt": {
-  "at": "2026-10-10T07:02:31+09:00",
-  "status": "unchanged",
+  "at": "2026-10-10T23:29:35+09:00",
+  "status": "published",
   "source_path": "cmems"
  },
  "wide": {
   "file": {
    "path": "data/tidal/east_asia_tidal.json",
-   "bytes": 10844394,
-   "gzip9_bytes": 1669982
+   "bytes": 10884991,
+   "gzip9_bytes": 1704185
   },
   "grid": {
    "minLat": 18.0,
@@ -861,11 +861,11 @@
    "max_cms": 303,
    "core_overlap_identical": 1209
   },
-  "generated": "2026-10-10T07:02:31+09:00",
-  "changed": "2026-10-10T02:57:42+09:00",
+  "generated": "2026-10-10T23:29:35+09:00",
+  "changed": "2026-10-10T23:29:35+09:00",
   "last_attempt": {
-   "at": "2026-10-10T07:02:31+09:00",
-   "status": "unchanged"
+   "at": "2026-10-10T23:29:35+09:00",
+   "status": "published"
   }
  }
 }

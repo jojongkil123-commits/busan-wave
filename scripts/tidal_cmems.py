@@ -306,6 +306,12 @@ def build(t0, n, box, workers=WORKERS):
     linear_k = 0
     for k in range(n):
         t = t0 + 3600 * k
+        if SHOW_SHIFT:   # (2026-10-11 조팀장 결정: 윈디와 같은 시각 +1시간) 윈디 표기 = 원파일 (t − SHOW_SHIFT + 30분) 값 그대로(보간 없음)
+            src = t - SHOW_SHIFT + 1800
+            if src in U:
+                tu[:, :, k] = U[src][::-1, :] * 100.0
+                tv[:, :, k] = V[src][::-1, :] * 100.0
+            continue
         a, b, c, e = (t - 5400, t - 1800, t + 1800, t + 5400)
         if b not in U or c not in U:
             continue
@@ -323,7 +329,13 @@ def build(t0, n, box, workers=WORKERS):
     sea = np.isfinite(tu).sum(axis=2) >= 0.9 * n          # 육지·자료 없는 칸은 -1
     valid = np.isfinite(tu) & np.isfinite(tv) & sea[:, :, None]
     sp = np.where(valid, np.rint(np.hypot(tu, tv)), -1).astype(int)
-    dr = np.where(valid, np.rint(np.degrees(np.arctan2(tu, tv))) % 360, -1).astype(int)
+    # (2026-10-10 조팀장 요청: 확대 시 방사형 흐름·약한 곳 멈춤 버그 — 윈디처럼) 0 인 성분은 부호를 살려 ±1/4 단위로 — 원자료가 1/1024 m/s 로
+    #   반올림돼 동해 한가운데는 칸의 62% 가 정확히 ±0 벡터다. 그대로 atan2 하면 −0 은 180°, +0 은 0° 로 찍혀 방향이 남·북 둘로만 갈렸다.
+    #   반올림돼 0 이 된 값의 평균 크기(단위의 1/4)를 부호대로 넣는다. 세기(spd)는 그대로라 1 cm/s 이상 칸 방향은 거의 안 바뀐다.
+    q4 = (100.0 / 1024) / 4
+    du = np.where(tu == 0, np.copysign(q4, tu), tu)
+    dv = np.where(tv == 0, np.copysign(q4, tv), tv)
+    dr = np.where(valid, np.rint(np.degrees(np.arctan2(du, dv))) % 360, -1).astype(int)
     dr[valid & (dr == 360)] = 0
     hours_missing = int((~np.isfinite(tu[sea])).sum()) if sea.any() else 0
     info = {
@@ -349,6 +361,11 @@ def build(t0, n, box, workers=WORKERS):
 #     어느 쪽이 맞나 — KHOA 조류예보 29곳(유속 ≥20 cm/s, 2,700시각)과 맞대 보니 ARCO 표기 그대로가 더 맞았다
 #     (45° 안 71.1% · 반대 4.1%, 원파일 HH:30 기준 보간은 69.1% · 5.9%). 그래서 공식 도구 시각을 **그대로** 쓴다(보간 없음).
 #     공식 도구로 받는 이용자(윈디 포함일 가능성이 크다)와 같은 시각 표기다.
+# ⭐ 화면 시각 = 윈디 표기 (2026-10-11 조팀장 결정: 윈디와 같은 시각 +1시간)
+#   10/10 윈디 캡처 대조(2,581점·두 날짜): 윈디 'T시' 그림 = 우리 예전 'T−1시' 그림(공식 도구 ARCO 라벨 T−1시 = 원파일 T−30분 값).
+#   국립해양조사원 조류예보와는 예전 표기(이동 0)가 더 맞았지만(점수 0.785 vs 0.691) 조팀장이 '윈디와 똑같이'를 골랐다.
+#   → 출력 시각 t 의 값 = ARCO 라벨 (t − SHOW_SHIFT) 값. 계약 t0(00:00 KST)·n 은 그대로. 되돌리려면 환경변수 TIDAL_SHOW_SHIFT=0.
+SHOW_SHIFT = int(os.environ.get("TIDAL_SHOW_SHIFT", "3600"))
 DATASET_ID = "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"
 
 
@@ -357,7 +374,13 @@ def _contract(tu, tv, n):
     sea = np.isfinite(tu).sum(axis=2) >= 0.9 * n
     valid = np.isfinite(tu) & np.isfinite(tv) & sea[:, :, None]
     sp = np.where(valid, np.rint(np.hypot(tu, tv)), -1).astype(int)
-    dr = np.where(valid, np.rint(np.degrees(np.arctan2(tu, tv))) % 360, -1).astype(int)
+    # (2026-10-10 조팀장 요청: 확대 시 방사형 흐름·약한 곳 멈춤 버그 — 윈디처럼) 0 인 성분은 부호를 살려 ±1/4 단위로 — 원자료가 1/1024 m/s 로
+    #   반올림돼 동해 한가운데는 칸의 62% 가 정확히 ±0 벡터다. 그대로 atan2 하면 −0 은 180°, +0 은 0° 로 찍혀 방향이 남·북 둘로만 갈렸다.
+    #   반올림돼 0 이 된 값의 평균 크기(단위의 1/4)를 부호대로 넣는다. 세기(spd)는 그대로라 1 cm/s 이상 칸 방향은 거의 안 바뀐다.
+    q4 = (100.0 / 1024) / 4
+    du = np.where(tu == 0, np.copysign(q4, tu), tu)
+    dv = np.where(tv == 0, np.copysign(q4, tv), tv)
+    dr = np.where(valid, np.rint(np.degrees(np.arctan2(du, dv))) % 360, -1).astype(int)
     dr[valid & (dr == 360)] = 0
     return sp, dr, sea
 
@@ -369,8 +392,9 @@ def _toolbox_fetch(t0, n, box):
         raise RuntimeError("코페르니쿠스 계정 환경변수 없음(CMEMS_USERNAME/CMEMS_PASSWORD 비밀값)")
     min_lat, max_lat, min_lng, max_lng, rows, cols = box
     t_start = time.time()
-    start = datetime.fromtimestamp(t0, UTC)
-    end = datetime.fromtimestamp(t0 + 3600 * (n - 1), UTC)
+    src0 = t0 - SHOW_SHIFT                                  # (2026-10-11 조팀장 결정: 윈디와 같은 시각 +1시간) 출력 k = ARCO 라벨 src0 + k시간
+    start = datetime.fromtimestamp(src0, UTC)
+    end = datetime.fromtimestamp(src0 + 3600 * (n - 1), UTC)
     ds = copernicusmarine.open_dataset(
         dataset_id=DATASET_ID, variables=["utide", "vtide"],
         minimum_longitude=min_lng, maximum_longitude=max_lng, minimum_latitude=min_lat, maximum_latitude=max_lat,
@@ -384,7 +408,7 @@ def _toolbox_fetch(t0, n, box):
             or abs(lon.min() - min_lng) > 1e-3 or abs(lon.max() - max_lng) > 1e-3:
         raise RuntimeError(f"격자가 계약과 다름 {len(lat)}×{len(lon)} lat {lat.min():.4f}–{lat.max():.4f} lon {lon.min():.4f}–{lon.max():.4f}")
     times = (ds["time"].values.astype("datetime64[s]").astype("int64")).tolist()
-    want = [t0 + 3600 * k for k in range(n)]
+    want = [src0 + 3600 * k for k in range(n)]
     pos = {t: i for i, t in enumerate(times)}
     t_load0 = time.time()
     U = ds["utide"].transpose("time", "latitude", "longitude").values
