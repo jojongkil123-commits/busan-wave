@@ -1,0 +1,20 @@
+{
+ "width": 1440,
+ "height": 721,
+ "uMin": 0.0,
+ "uMax": 32.0,
+ "vMin": 0.0,
+ "vMax": 0.0,
+ "west": -180.0,
+ "east": 179.75,
+ "south": -90.0,
+ "north": 90.0,
+ "maxSstC": 33.42055664062502,
+ "fh": 150,
+ "sst": true,
+ "landMasked": true,
+ "source": "ECMWF (CC BY 4.0) IFS skin temperature over sea (lsm<0.15)",
+ "run": "20261024 06Z",
+ "srcRun": "20261024 00Z",
+ "srcStep": 156
+}
