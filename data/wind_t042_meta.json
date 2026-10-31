@@ -1,0 +1,17 @@
+{
+ "width": 1440,
+ "height": 721,
+ "uMin": -34.16871643066406,
+ "uMax": 32.76878356933594,
+ "vMin": -32.6796875,
+ "vMax": 34.0078125,
+ "west": -180.0,
+ "east": 179.75,
+ "south": -90.0,
+ "north": 90.0,
+ "maxWindMs": 41.0496580572114,
+ "landOk": true,
+ "fh": 42,
+ "source": "ECMWF (CC BY 4.0) IFS 10m wind",
+ "run": "20261031 12Z"
+}

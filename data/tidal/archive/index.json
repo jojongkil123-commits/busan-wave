@@ -1,0 +1,45 @@
+{
+ "what": "전국 조류(CMEMS SMOC 조석 성분) 일별 보관본 — 출조 기록 '그날 바다' 조류용. 진단용(앱은 이 파일을 안 읽는다) (2026-10-13 조팀장 요청: 그날 바다 윈디 자료)",
+ "url_pattern": "https://jojongkil123-commits.github.io/busan-wave/data/tidal/archive/korea_YYYYMMDD.json",
+ "contract": "data/tidal/korea_tidal.json 과 같음 — 단 n=24, t0 = 그날 00:00 KST. 출력 t = 공식 도구 라벨 t − show_shift_s (윈디 시각)",
+ "show_shift_s": 3600,
+ "keep_days": 180,
+ "start": "2026-06-01",
+ "from": "2026-06-01",
+ "to": "2026-10-31",
+ "days": 153,
+ "bytes": 237950366,
+ "missing": [],
+ "updated": "2026-11-01T04:32:30+09:00",
+ "last_attempt": {
+  "at": "2026-11-01T04:32:21+09:00",
+  "status": "ok",
+  "start_reason": "index.json start",
+  "added": [
+   {
+    "day": "2026-10-31",
+    "bytes": 1556756,
+    "gzip9_bytes": 335190,
+    "sea": 7901,
+    "empty_sea_hours": 0,
+    "max_cms": 298
+   }
+  ],
+  "failed": {},
+  "fetch": [
+   {
+    "days": [
+     "2026-10-31",
+     "2026-10-31"
+    ],
+    "n": 24,
+    "open_s": 4.9,
+    "load_s": 3.2,
+    "array_mb": 2.0,
+    "chunks": "{'time': 1, 'elevation': 1, 'latitude': 512, 'longitude': 2048}",
+    "total_s": 8.1
+   }
+  ],
+  "elapsed_s": 9.3
+ }
+}

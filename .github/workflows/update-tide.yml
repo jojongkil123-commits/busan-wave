@@ -1,0 +1,41 @@
+# 물때 자동 갱신 — 매일 새벽
+#  · build_tide.py  : 부산 오늘 물때 → data/tide_busan.json (파고 지도)
+#  · build_tides.py : 전국 97개 관측소 고저조(이번 달~다음 달) + 부산권 조류예보 → data/tides/ (스킨해루질 앱)
+#  비밀값 KHOA_KEY(data.go.kr 인증키) 필요.
+name: update-tide
+on:
+  schedule:
+    - cron: "5 20 * * *"   # 매일 05:05 KST (UTC 20:05)
+  workflow_dispatch:        # 수동 실행 버튼
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        # ref: main — (2026-10-15 조팀장 결정: 덮어쓰기) update-wave 가 main 을 부모 없는 커밋 하나로 접으므로, 대기열에서 기다린 실행이
+        #   '실행을 만든 때의 SHA'를 받으면 이미 역사에서 빠져 체크아웃이 실패할 수 있다(GitHub 은 닿지 않는 SHA 를 안 내줌). 지금 main 을 받는다.
+        with: { ref: main }
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: 물때 JSON 생성
+        env:
+          KHOA_KEY: ${{ secrets.KHOA_KEY }}
+          KHOA_RELAY: https://xlwrwaxfuwormfousesq.supabase.co/functions/v1/khoa-relay
+        run: python3 scripts/build_tide.py
+      - name: 전국 물때·조류 JSON 생성
+        env:
+          KHOA_KEY: ${{ secrets.KHOA_KEY }}
+          KHOA_RELAY: https://xlwrwaxfuwormfousesq.supabase.co/functions/v1/khoa-relay
+        run: python3 scripts/build_tides.py
+      - name: 커밋 & 푸시
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          git add data/tide_busan.json data/tides || true
+          git diff --cached --quiet || git commit -m "물때 자동 갱신 ($(date -u +%Y-%m-%d))"
+          git pull --rebase || true
+          git push || true
