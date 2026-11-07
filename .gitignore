@@ -1,0 +1,5 @@
+.fablize/
+scripts/__pycache__/
+__pycache__/
+*.pyc
+_backup/
