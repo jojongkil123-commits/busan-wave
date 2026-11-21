@@ -6,40 +6,40 @@
  "keep_days": 180,
  "start": "2026-06-01",
  "from": "2026-06-01",
- "to": "2026-11-20",
- "days": 173,
- "bytes": 268979916,
+ "to": "2026-11-21",
+ "days": 174,
+ "bytes": 270534995,
  "missing": [],
- "updated": "2026-11-21T07:21:01+09:00",
+ "updated": "2026-11-22T06:05:08+09:00",
  "last_attempt": {
-  "at": "2026-11-21T07:20:50+09:00",
+  "at": "2026-11-22T06:04:59+09:00",
   "status": "ok",
   "start_reason": "index.json start",
   "added": [
    {
-    "day": "2026-11-20",
-    "bytes": 1548625,
-    "gzip9_bytes": 305172,
+    "day": "2026-11-21",
+    "bytes": 1555079,
+    "gzip9_bytes": 313630,
     "sea": 7901,
     "empty_sea_hours": 0,
-    "max_cms": 187
+    "max_cms": 206
    }
   ],
   "failed": {},
   "fetch": [
    {
     "days": [
-     "2026-11-20",
-     "2026-11-20"
+     "2026-11-21",
+     "2026-11-21"
     ],
     "n": 24,
-    "open_s": 6.2,
-    "load_s": 3.6,
+    "open_s": 5.0,
+    "load_s": 2.9,
     "array_mb": 2.0,
     "chunks": "{'time': 1, 'elevation': 1, 'latitude': 512, 'longitude': 2048}",
-    "total_s": 9.8
+    "total_s": 7.9
    }
   ],
-  "elapsed_s": 11.1
+  "elapsed_s": 8.7
  }
 }
