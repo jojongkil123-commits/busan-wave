@@ -1,0 +1,22 @@
+{
+ "width": 1440,
+ "height": 721,
+ "uMin": -6.238762039384976,
+ "uMax": 10.639116348898655,
+ "vMin": -5.01206315539151,
+ "vMax": 6.317779967281428,
+ "west": -180.0,
+ "east": 179.75,
+ "south": -90.0,
+ "north": 90.0,
+ "maxWaveM": 11.84813703969121,
+ "filled": true,
+ "fh": 45,
+ "source": "ECMWF (CC BY 4.0) IFS-WAM swh+mwd",
+ "coastFill": {
+  "iters": 2,
+  "lsmMax": 0.75,
+  "cells": 9228
+ },
+ "run": "20261121 12Z"
+}

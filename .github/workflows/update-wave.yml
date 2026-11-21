@@ -1,0 +1,145 @@
+# 지도 바람·파도·수온 텍스처 — ECMWF open data(IFS 0.25°, CC BY 4.0)를 받아 data/ 의 PNG·meta·wx_steps.json 을 갱신해 커밋.
+# (2026-10-14 조팀장 요청: 지도 자료를 윈디처럼 ECMWF 로 + "하루 4번 중 2번만 돈다" 고치기)
+#   예전: NOAA GFS · GFS-Wave, cron 4번(01:20/07:20/13:20/19:20). 되돌리기: _backup/ecmwf1014/ (gitignore) 또는 git 이력.
+#
+# ⭐ 왜 2번만 돌았나 (2026-09-30~10-13 실행 기록 gh run list):
+#   깃허브 스케줄이 이 저장소에서 2~6시간 늦게 깨어나고, 늦어진 회차가 다음 회차와 겹치면 하나로 합쳐져 사라진다.
+#   01:20 회차는 2주 내내 05:50~07:44 에야 시작했고 10/12·10/13 은 하루 2번뿐. 매시 35분 cron(update-sst-obs)도 하루 4번꼴만 돈다.
+#   실패·시간초과·겹침 취소는 없었다(전부 success, 7~10분). → cron 시각을 옮기는 것으로는 못 고친다.
+# 고친 방법 = '스스로 다시 부르기' 사슬 + 대기 환경:
+#   ① 매 실행 끝에 이 작업이 자기 자신을 workflow_dispatch(chain=true)로 다시 부른다(GITHUB_TOKEN 으로도 허용되는 유일한 이벤트).
+#   ② 다시 불린 실행은 '대기 환경'(wave-poll 30분 · 막 새 런을 올린 뒤엔 wave-rest 240분, 저장소 설정 Environments 의 Wait timer)
+#      에서 러너를 쓰지 않고 기다렸다가, ECMWF 에 새 런이 다 올라왔는지만 본다(체크아웃 없이 API 로 10초).
+#      새 런이면 그때만 체크아웃·변환·커밋. → ECMWF 4번 발표(00/06/12/18Z, 발표 끝 ≈ +6.5~7.5시간)를 각각 30분 안에 잡는다.
+#   ③ cron 은 사슬이 끊겼을 때 다시 잇는 비상용(늦게 돌아도 상관없다). 동시 실행 묶음(concurrency)은 '실행 1 + 대기 1' 만 남기므로
+#      사슬이 둘로 불어나지 않는다. 폭주 방지: 최근 60분 안에 dispatch 실행이 6개 넘으면 다시 부르지 않는다(대기 환경이 사라진 경우 등).
+#   되돌리기(사슬 끄기): 이 파일의 '다음 실행 예약' 작업을 지우고, 저장소 설정 → Environments 에서 wave-poll·wave-rest 를 지운다.
+#   (2026-10-14 리뷰 수정) 파일을 안 고치고 멈추기: 저장소 설정 → Secrets and variables → Actions → Variables 에
+#     WAVE_CHAIN = off 를 넣는다(다음 예약을 안 함). 실행을 '취소'해도 다음 예약을 하지 않는다(!cancelled()).
+#   (리뷰 수정) 실패하면 30분이 아니라 240분 쉬고 다시 본다 — 고장이 계속돼도 하루 ~48번 실패하지 않게(사슬 ≈6번 + 비상 cron).
+# 푸시 (2026-10-15 조팀장 결정: "예전처럼 덮어쓰기"): main 을 '부모 없는 커밋 하나'로 덮어쓴다 — scripts/wave_overwrite_push.sh.
+#   10/14 에 일반 푸시로 바꿨더니 파도 파일(≈150MB/회)이 역사에 쌓여 저장소가 하루 ≈0.6GB 씩 컸다(9.7GB). 예전 봇의 amend+강제 푸시로 되돌리되
+#   ① 매번 최신 main 의 파일 전부 + 이번 파도 파일로 만든다 → 다른 작업(수온·조류·물때·코드)이 올린 내용은 그대로 들어간다.
+#   ② 강제 푸시는 lease(방금 받은 SHA 일 때만)로만 — 그새 누가 올렸으면 거절 → 다시 받아 그 위에서 다시(최대 6번). 무조건 --force 는 없다.
+#   ③ 다른 작업은 그대로: update-sst-obs·update-tide 는 'git pull --rebase', update-tidal 은 data_commit_push.sh 가 최신 main 위에 다시 얹는다.
+#   ⚠️ 사람이 코드를 올릴 때: 원격 main 역사는 실행마다 하나로 접힌다 → 'git rebase origin/main' 말고
+#      'git fetch && git checkout -B main origin/main' 뒤에 고친 파일을 다시 얹어(또는 cherry-pick) 일반 푸시. 접힌 옛 역사는 각자 로컬 클론에 남는다.
+#   되돌리기(일반 푸시로): _backup/overwrite1015/update-wave.yml.orig 의 '커밋 & 푸시' 단계.
+name: update-wave-texture
+on:
+  schedule:
+    - cron: "17 1,4,7,10,13,16,19,22 * * *"   # 비상용(사슬 다시 잇기) — 깃허브가 2~6시간 늦게 돌려도 괜찮다
+  workflow_dispatch:
+    inputs:
+      chain:
+        description: "사슬 실행(대기 환경에서 기다렸다 확인) — 사람이 누를 땐 false"
+        required: false
+        default: "false"
+      rest:
+        description: "대기 길이: short(30분, wave-poll) | long(240분, wave-rest)"
+        required: false
+        default: "short"
+      force:
+        description: "같은 런이어도 다시 만들기"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  actions: write          # 다음 실행 예약(workflow_dispatch)·폭주 검사
+
+concurrency:
+  group: update-wave
+  cancel-in-progress: false
+
+jobs:
+  wait:
+    # 사슬 실행만 대기 환경을 거친다(러너 없이 기다림). 사람이 누른 실행·cron 은 바로 간다.
+    if: github.event_name == 'workflow_dispatch' && inputs.chain == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.rest == 'long' && 'wave-rest' || 'wave-poll' }}
+    steps:
+      - run: echo "대기 끝 $(date -u +%FT%TZ) (${{ inputs.rest }})"
+
+  build:
+    needs: wait
+    if: ${{ !cancelled() && (needs.wait.result == 'success' || needs.wait.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      built: ${{ steps.make.outputs.built }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 새 ECMWF 런이 있나 (체크아웃 없이)
+        id: check
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/scripts/build_wave_texture.py?ref=main" -H "Accept: application/vnd.github.raw" > "$RUNNER_TEMP/bwt.py"
+          gh api "repos/$GITHUB_REPOSITORY/contents/data/wx_steps.json?ref=main" -H "Accept: application/vnd.github.raw" > "$RUNNER_TEMP/wx_steps.json" || echo '{}' > "$RUNNER_TEMP/wx_steps.json"
+          out=$(python3 "$RUNNER_TEMP/bwt.py" --check --published "$RUNNER_TEMP/wx_steps.json")
+          echo "$out"
+          need=$(echo "$out" | python3 -c "import json,sys; print('true' if json.load(sys.stdin)['need'] else 'false')")
+          if [ "${{ inputs.force }}" = "true" ]; then need=true; fi
+          echo "need=$need" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        if: steps.check.outputs.need == 'true'
+        # ref: main — 예약된 실행은 최대 4시간 기다리므로 실행을 만든 때의 SHA 가 아니라 지금 main 을 받는다(위 확인 단계와 같은 스크립트로 빌드,
+        #   덮어쓰기로 옛 SHA 가 역사에서 빠져도 상관없게. 2026-10-15)
+        with: { fetch-depth: 1, ref: main }
+      - uses: actions/setup-python@v6
+        if: steps.check.outputs.need == 'true'
+        with: { python-version: "3.12" }
+      - name: 의존성 (GRIB 파서 — eccodes wheel 에 CCSDS 포함)
+        if: steps.check.outputs.need == 'true'
+        run: pip install --quiet eccodes numpy pillow
+      - name: ECMWF → 텍스처
+        id: make
+        if: steps.check.outputs.need == 'true'
+        run: python3 -u scripts/build_wave_texture.py ${{ inputs.force == 'true' && '--force' || '' }}
+      - name: 커밋 & 덮어쓰기 푸시 (최신 main 파일 + 이번 파도 파일 → 부모 없는 커밋 하나, lease 강제 푸시)
+        if: steps.make.outputs.built == 'yes'
+        run: |
+          set -uo pipefail
+          git config user.name "wave-bot"
+          git config user.email "bot@users.noreply.github.com"
+          RUN=$(python3 -c "import json; print(json.load(open('data/wx_steps.json'))['run'])")
+          MSG="auto: ECMWF 바람·파도·수온 텍스처 갱신 $RUN ($(date -u +%FT%TZ))"
+          SAVE=$(mktemp -d)
+          # 이번 실행이 만든 파일 = 스텝 파일 + 레거시(지금 본·PWA) + 매니페스트. 이 작업만 쓰는 이름들이다.
+          cp data/wind_t[0-9][0-9][0-9]* data/wave_fill_t[0-9][0-9][0-9]* data/sst_t[0-9][0-9][0-9]* \
+             data/wind.png data/wind_meta.json data/wave_fill.png data/wave_fill_meta.json data/sst.png data/sst_meta.json \
+             data/wave.png data/wave_meta.json data/wx_steps.json "$SAVE/"
+          # 스크립트는 작업 폴더 밖으로 복사해서 돌린다 — 안에서 최신 main 으로 체크아웃하며 scripts/ 가 바뀌어도 실행 중인 파일이 안 바뀌게
+          cp scripts/wave_overwrite_push.sh "$RUNNER_TEMP/wave_overwrite_push.sh"
+          bash "$RUNNER_TEMP/wave_overwrite_push.sh" "$MSG" "$SAVE"
+
+  next:
+    # 다음 실행 예약 — 성공·실패와 상관없이(사슬이 끊기지 않게). 막 새 런을 올렸으면 길게(240분), 아니면 30분 쉬고 다시 본다.
+    # (2026-10-14 리뷰 수정) 실패하면 길게(240분) — 같은 고장으로 30분마다 실패·재다운로드하지 않게.
+    #   취소된 실행·WAVE_CHAIN=off 이면 예약하지 않는다(사람이 멈출 수 있게). 끊긴 사슬은 비상 cron 이 다시 잇는다.
+    needs: [wait, build]
+    if: ${{ !cancelled() && vars.WAVE_CHAIN != 'off' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 폭주 검사 후 다음 실행 예약
+        run: |
+          set -uo pipefail
+          since=$(date -u -d '-60 min' +%FT%TZ)
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/update-wave.yml/runs?event=workflow_dispatch&created=%3E%3D$since&per_page=1" --jq '.total_count' || echo 0)
+          echo "최근 60분 dispatch 실행: $n"
+          if [ "${n:-0}" -gt 6 ]; then
+            echo "::error::최근 60분 dispatch 실행 ${n}개 — 대기 환경(wave-poll/wave-rest)이 안 먹는 것 같다. 사슬을 멈춘다(cron 이 나중에 다시 잇는다)."
+            exit 1
+          fi
+          rest=short
+          [ "${{ needs.build.outputs.built }}" = "yes" ] && rest=long
+          if [ "${{ needs.build.result }}" = "failure" ] || [ "${{ needs.wait.result }}" = "failure" ]; then
+            rest=long
+            echo "::warning::이번 실행 실패 — 240분 쉬고 다시 본다"
+          fi
+          gh workflow run update-wave.yml -R "$GITHUB_REPOSITORY" --ref main -f chain=true -f rest=$rest   # -R: 이 작업엔 체크아웃이 없어 gh 가 저장소를 못 찾는다(2026-10-14 첫 실행에서 확인)
+          echo "다음 실행 예약: rest=$rest"
